@@ -1,1 +1,1 @@
-    for syllable in sylls:
+contextual_edit("th.l", "th.a.l",) # Anaptyxis
