@@ -1,1 +1,1 @@
-contextual_edit("th.l", "th.a.l",) # Anaptyxis
+        print(f"{word:<12} → {result}")

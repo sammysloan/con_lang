@@ -1,0 +1,34 @@
+Structure:
+
+/Conlang
+	main.ui
+	main.py
+	tempCodeRunnerFile.py
+
+	/core
+		__init__.py
+		akkadian.py
+		germanic.py
+		latin.py
+		phonologizer.py
+		test_tokenizer_latin.py
+	/data
+		latin_stress_overrides.json
+	/evolution
+		__init__.py
+		tokenizer.py
+		evolver.py
+		ipa_dictionaries.py
+	/presets
+		presets.db
+	/interface
+		__init__.py
+		dialog_assimilate.ui
+		dialog_context.ui
+		dialog_epen.ui
+		dialog_phono.ui
+		dialog_syll.ui
+		dialog_stress.ui
+		evo.ui
+		preset_edit.py
+	

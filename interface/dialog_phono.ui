@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>255</width>
-    <height>169</height>
+    <width>261</width>
+    <height>212</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -19,7 +19,7 @@
      <x>10</x>
      <y>0</y>
      <width>241</width>
-     <height>161</height>
+     <height>182</height>
     </rect>
    </property>
    <layout class="QVBoxLayout" name="verticalLayout">
@@ -44,21 +44,35 @@
     <item>
      <widget class="QRadioButton" name="radioButton_ass">
       <property name="text">
-       <string>Assimilate</string>
+       <string>Assimilation rule</string>
       </property>
      </widget>
     </item>
     <item>
      <widget class="QRadioButton" name="radioButton_con">
       <property name="text">
-       <string>Contextual edit</string>
+       <string>Contextual rule</string>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="QRadioButton" name="radioButton_epen">
+      <property name="text">
+       <string>Epenthetic rule</string>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="QRadioButton" name="radioButton_stress">
+      <property name="text">
+       <string>Stress rule</string>
       </property>
      </widget>
     </item>
     <item>
      <widget class="QRadioButton" name="radioButton_syll">
       <property name="text">
-       <string>Syllabic edit</string>
+       <string>Syllabic rule</string>
       </property>
      </widget>
     </item>
