@@ -1,25 +1,11 @@
 from .ipa_dictionaries import expand_group_keywords, IPA_GROUPS
+from .tokenizer import Tokenizer, DEFAULT_IPA_UNITS
 
-DEFAULT_IPA_UNITS = sorted([
-    # Long/overlong vowels
-    'aːː', 'eːː', 'iːː', 'oːː', 'uːː',
-    'aː', 'eː', 'iː', 'oː', 'uː',
-    # Nasalized variants
-    'ã', 'ẽ', 'ĩ', 'õ', 'ũ',
-    'ãː', 'ẽː', 'ĩː', 'õː', 'ũː',
-    'ãːː', 'ẽːː', 'ĩːː', 'õːː', 'ũːː',
-    # Diphthongs
-    'ai', 'ei', 'oi', 'au', 'eu', 'ou', 'ae', 'oe', 'ui',
-    # Syllabic consonants
-    'r̩', 'l̩', 'm̩', 'n̩',
-    # Laryngeals
-    'h̥', 'h₁̥', 'h₂̥', 'h₃̥',
-    # Common affricates
-    'tʃ', 'dʒ', 'ts', 'dz',
-    # Labialized/aspirated
-    'kʷ', 'gʷ', 'pʰ', 'tʰ', 'kʰ', 'bʰ', 'dʰ', 'gʰ',
-    # Single IPA characters
-] + list("abcdefghijklmnopqrstuvwxyzɪʏʊɛɔæɑɐɶɵøɞɤʌʉɨəː̃ˈˌ"), key=len, reverse=True)
+# One module-level tokenizer (permissive by default for evolution stage)
+_TOK = Tokenizer(units=DEFAULT_IPA_UNITS, strict_compounds=False)
+
+def tokenize_ipa(ipa_string):
+    return _TOK.tokenize(ipa_string)
 
 def is_syllable_heavy(syllable_text: str, coda_matters: bool = True) -> bool:
     tokens = tokenize_ipa(syllable_text)
@@ -43,24 +29,6 @@ def is_syllable_heavy(syllable_text: str, coda_matters: bool = True) -> bool:
             return True
 
     return False
-
-
-def tokenize_ipa(ipa_string, ipa_units=DEFAULT_IPA_UNITS):
-    """
-    Tokenizes an IPA string into linguistically valid phonological units.
-    """
-    tokens = []
-    i = 0
-    while i < len(ipa_string):
-        for unit in ipa_units:
-            if ipa_string.startswith(unit, i):
-                tokens.append(unit)
-                i += len(unit)
-                break
-        else:
-            tokens.append(ipa_string[i])  # fallback to single char
-            i += 1
-    return tokens
 
 # ===== WORD-LEVEL CLASSES =====
 

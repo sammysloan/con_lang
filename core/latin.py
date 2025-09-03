@@ -7,16 +7,10 @@ except ModuleNotFoundError:
     # when running directly from core/
     from phonologizer import Phonologizer
 
-# tokenizer lives in evolution/
-try:
-    from evolution.tokenizer import Tokenizer, DEFAULT_IPA_UNITS
-except ModuleNotFoundError:
-    # optional: mild fallback if you open this file alone
-    Tokenizer = None
-    DEFAULT_IPA_UNITS = []
 
-try:
-    from evolution.ipa_dictionaries import IPA_GROUPS
+from evolution.tokenizer import Tokenizer, DEFAULT_IPA_UNITS
+
+from evolution.ipa_dictionaries import IPA_GROUPS
 
 
 class PhonoLatin(Phonologizer):
@@ -79,14 +73,12 @@ class PhonoLatin(Phonologizer):
             "r̩", "l̩", "m̩", "n̩",
         }
 
-        self.tokenizer = None
-        if Tokenizer is not None:
-            self.tokenizer = Tokenizer(
-                units=DEFAULT_IPA_UNITS or self.ipa_units,  # fallback to local list if needed
-                legal_units=self.legal_units,
-                legal_compounds=self.legal_compounds,
-                strict_compounds=True,  # STRICT for base-language `to_ipa`
-                    )
+        self.tokenizer = Tokenizer(
+            units=DEFAULT_IPA_UNITS or self.ipa_units,
+            legal_units=self.legal_units,
+            legal_compounds=self.legal_compounds,
+            strict_compounds=True,
+        )
 
 
     # Parent class overwrites
@@ -152,17 +144,7 @@ class PhonoLatin(Phonologizer):
         ipa_string = "".join(mapped)
 
         # 4) Tokenize the IPA string
-        # Prefer the shared tokenizer if present; otherwise fall back to your local tokenizer.
-        if hasattr(self, "tokenizer") and self.tokenizer is not None:
-            ipa_units = (
-            self.tokenizer.tokenize(ipa_string)
-            if getattr(self, "tokenizer", None) is not None
-            else self.tokenize_ipa(ipa_string)  # fallback to your local tokenizer
-        )
-
-        else:
-            # fallback to your current latin.py implementation
-            ipa_units = self.tokenize_ipa(ipa_string)
+        ipa_units = self.tokenizer.tokenize(ipa_string)
 
         # 5) Syllabify the token list (your existing method expects tokens)
         syllables = self.syllabify(ipa_units)
@@ -403,19 +385,3 @@ class PhonoLatin(Phonologizer):
 
         return syllables
 
-    def tokenize_ipa(self, ipa_string):
-        tokens = []
-        i = 0
-        while i < len(ipa_string):
-            match = None
-            for unit in sorted(self.ipa_units, key=len, reverse=True):
-                if ipa_string[i:i+len(unit)] == unit:
-                    match = unit
-                    break
-            if match:
-                tokens.append(match)
-                i += len(match)
-            else:
-                tokens.append(ipa_string[i])
-                i += 1
-        return tokens

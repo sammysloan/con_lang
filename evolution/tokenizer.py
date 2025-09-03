@@ -1,14 +1,6 @@
 from typing import Iterable, List, Optional, Set
-from evolution.ipa_dictionaries import IPA_GROUPS   # adjust if path differs
+from evolution.ipa_dictionaries import IPA_GROUPS
 from itertools import product
-
-class Tokenizer:
-    # ... your existing Tokenizer code (unchanged) ...
-
-    @staticmethod
-    def detokenize(tokens: Iterable[str]) -> str:
-        return "".join(tokens)
-
 
 # === DEFAULT IPA UNITS BUILDER ===
 

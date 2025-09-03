@@ -15,7 +15,8 @@ from interface.preset_edit import UI_Main as Preset_Main
 # Path setup
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "presets", "presets.db")
-OVERRIDE_PATH = os.path.join(BASE_DIR, "latin_stress_overrides.json")
+OVERRIDE_PATH = os.path.join(BASE_DIR, "data", "latin_stress_overrides.json")
+
 
 
 class MainApp(QMainWindow):

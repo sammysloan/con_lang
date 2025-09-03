@@ -1,9 +1,15 @@
 from core.phonologizer import Phonologizer
+from evolution.tokenizer import Tokenizer, DEFAULT_IPA_UNITS
 
 class PhonoGermanic(Phonologizer):
     def __init__(self, debug=False, override_path=None):
         super().__init__(language="Proto-Germanic")
         self.debug = debug
+
+        self.tokenizer = Tokenizer(
+            units=DEFAULT_IPA_UNITS,
+            strict_compounds=False
+        )
 
         self.ipa_map = {
             # Short vowels
@@ -92,6 +98,8 @@ class PhonoGermanic(Phonologizer):
             'ą', 'ę', 'į', 'ǫ', 'ų',
             'ai', 'au', 'ei', 'eu', 'iu', 'oi', 'ui'
         }
+
+
  
     # Parent class overwrites
     def assign_stress(self, syllables):
@@ -109,7 +117,7 @@ class PhonoGermanic(Phonologizer):
         syllables[0] = 'ˈ' + syllables[0]
         return syllables
 
-    def to_ipa(self, word: str) -> dict:
+    def to_ipa(self, word: str) -> str:
         """
         Converts Proto-Germanic orthographic input to IPA
         """
@@ -123,7 +131,7 @@ class PhonoGermanic(Phonologizer):
         mapped = [self.ipa_map.get(p, p) for p in phonemes]
 
         ipa_string = "".join(mapped)
-        ipa_units = self.tokenize_ipa(ipa_string)
+        ipa_units = self.tokenizer.tokenize(ipa_string)
 
         # 4. Syllabify the IPA units
         syllables = self.syllabify(ipa_units)
@@ -223,23 +231,6 @@ class PhonoGermanic(Phonologizer):
 
         # Non-native / foreign digraphs
         'qu', 'ph', 'ch', 'th', 'ps', 'gn' }
-
-    def tokenize_ipa(self, ipa_string):
-        tokens = []
-        i = 0
-        while i < len(ipa_string):
-            match = None
-            for unit in sorted(self.ipa_units, key=len, reverse=True):
-                if ipa_string[i:i+len(unit)] == unit:
-                    match = unit
-                    break
-            if match:
-                tokens.append(match)
-                i += len(match)
-            else:
-                tokens.append(ipa_string[i])
-                i += 1
-        return tokens
     
     def split_into_phonological_units(self, word):
         # Normalize compound glide clusters
