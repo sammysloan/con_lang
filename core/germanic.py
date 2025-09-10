@@ -261,9 +261,8 @@ class PhonoGermanic(Phonologizer):
     def syllabify(self, units):
         vowels = self.vowels
         onset_clusters = {
-            'tr', 'dr', 'pr', 'br', 'kr', 'gr', 'fr',
-            'pl', 'bl', 'kl', 'gl', 'fl',
-            'sp', 'st', 'sk'
+            'tr','dr','pr','br','kr','ɡr','fr',
+            'pl','bl','kl','ɡl','fl','sp','st','sk'
         }
 
         syllables = []

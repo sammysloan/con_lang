@@ -1,3 +1,4 @@
+
 IPA_GROUPS = {
     # ===== CONS by MANNER
     "Nasals": [
@@ -75,7 +76,7 @@ IPA_GROUPS = {
         'ɳ̊', 'ɳ', 'ʈ', 'ɖ', 'tʂ', 'dʐ', 'ʂ', 'ʐ', 'ɻ̊˔', 'ɻ˔', 'ɻ', 'ɽ̊', 'ɽ', 'ɽ̊r̥', 'ɽr', 'tꞎ', 'd𝼅', 'ꞎ', '𝼅', '𝼈̊', '𝼈', 'ɭ'
     ],
     "Palatal": [
-        'ɲ̊', 'ɲ', 'c', 'ɟ', 'tɕ', 'dʑ', 'cç', 'ɟʝ', 'ɕ', 'ʑ', 'ç', 'ʝ', 'j', 'c𝼆', 'ɟʎ̝', '𝼆', 'ʎ̝', 'ʎ̝', 'ʎ̆'
+        'ɲ̊', 'ɲ', 'c', 'ɟ', 'tɕ', 'dʑ', 'cç', 'ɟʝ', 'ɕ', 'ʑ', 'ç', 'ʝ', 'j', 'c𝼆', 'ɟʎ̝', '𝼆', 'ʎ̝', 'ʎ̆'
     ],
     "Velar": [
         'ŋ̊', 'ŋ', 'k', 'ɡ', 'kx', 'ɡɣ', 'x', 'ɣ', 'ɰ', 'k𝼄', 'ɡʟ̝', '𝼄', 'ʟ̝', 'ʟ', 'ʟ̆'
@@ -91,7 +92,7 @@ IPA_GROUPS = {
     ],
     # ===== CONS by FLOW =====
 
-    "Obstruants" : [
+    "Obstruents" : [
         'p', 'b', 'p̪', 'b̪', 't̼', 'd̼', 't̪', 'd̪', 't', 'd', 'ʈ', 'ɖ', 'c', 'ɟ', 'k', 'ɡ', 'q', 'ɢ', 'ʡ', 'ʔ',
         't̪s̪', 'd̪z̪', 'ts', 'dz', 't̠ʃ', 'd̠ʒ', 'tʂ', 'dʐ', 'tɕ', 'dʑ', 'pɸ', 'bβ', 'p̪f', 'b̪v', 
         't̪θ', 'd̪ð', 'tɹ̝̊', 'dɹ̝', 't̠ɹ̠̊˔', 'd̠ɹ̠˔', 'cç', 'ɟʝ', 'kx', 'ɡɣ', 'qχ', 'ɢʁ', 'ʡʜ', 'ʡʢ', 'ʔh', 's', 
@@ -119,7 +120,7 @@ IPA_GROUPS = {
     ], 
     "VoicedSonorants" : [
         'm', 'ɱ', 'n̼', 'n', 'ɳ', 'ɲ', 'ŋ', 'ɴ',
-        'β̞', 'ʋ', 'ð̞', 'ɹ', 'ɹ̠', 'ɻ', 'j', 'ɰ', 'ʁ̞', 'ʔ̞'
+        'β̞', 'ʋ', 'ð̞', 'ɹ', 'ɹ̠', 'ɻ', 'j', 'ɰ', 'ʁ̞', 'ʔ̞',
         'ⱱ̟', 'ⱱ', 'ɾ̼', 'ɾ', 'ɽ', 'ɢ̆', 'ʡ̆',
         'ʙ', 'r', 'r̠', 'ɽr', 'ʀ', 'ʢ',
         'dɮ', 'd𝼅', 'ɟʎ̝', 'ɡʟ̝',
@@ -234,6 +235,7 @@ IPA_GROUPS = {
 
     # ===== MISCELANEOUS =====
     "Glides": ['j', 'w', 'ɥ', 'ɰ'],
+    "SyllabicConsonants" : ['r̩','l̩','m̩','n̩'],
 
     "Consonants" : [],
     "Diphthongs" : [],
@@ -241,8 +243,9 @@ IPA_GROUPS = {
     "Vocoids" : []
 }
 
+# Build Consonants as a deduped list (preserve order)
 if not IPA_GROUPS["Consonants"]:
-    IPA_GROUPS["Consonants"] = (
+    parts = (
         IPA_GROUPS["Nasals"]
         + IPA_GROUPS["Plosives"]
         + IPA_GROUPS["SibilantAffricates"]
@@ -257,6 +260,7 @@ if not IPA_GROUPS["Consonants"]:
         + IPA_GROUPS["LateralApproximants"]
         + IPA_GROUPS["LateralTaps"]
     )
+    IPA_GROUPS["Consonants"] = list(dict.fromkeys(parts))
 
 if not IPA_GROUPS["Diphthongs"]:
     for v1 in IPA_GROUPS["ShortVowels"]:
@@ -265,7 +269,7 @@ if not IPA_GROUPS["Diphthongs"]:
                 IPA_GROUPS["Diphthongs"].append(v1 + v2) 
 
 if not IPA_GROUPS["LongVowels"]:
-    IPA_GROUPS["LongVowels"] = [v + "ː" + "ː" for v in IPA_GROUPS["ShortVowels"]]
+    IPA_GROUPS["LongVowels"] = [v + "ː" for v in IPA_GROUPS["ShortVowels"]]
 
 if not IPA_GROUPS["Nuclei"]:
     IPA_GROUPS["Nuclei"] = (
@@ -276,12 +280,62 @@ if not IPA_GROUPS["Nuclei"]:
         + IPA_GROUPS["OpenMidVowels"]
         + IPA_GROUPS["NearOpenVowels"]
         + IPA_GROUPS["OpenVowels"]
+        + IPA_GROUPS["SyllabicConsonants"]
         )
 
 if not IPA_GROUPS["OverlongVowels"]:
     IPA_GROUPS["OverlongVowels"] = [v + "ː" + "ː" for v in IPA_GROUPS["ShortVowels"]]
 
+if not IPA_GROUPS["Vocoids"]:
+    IPA_GROUPS["Vocoids"] = list(dict.fromkeys(
+        IPA_GROUPS["Nuclei"] + IPA_GROUPS.get("Glides", [])
+    ))
 
+
+__all__ = ["IPA_GROUPS", "expand_group_keywords", "validate_ipa_groups", "tokens_for"]
+
+def tokens_for(*group_names: str) -> set[str]:
+    out: set[str] = set()
+    for g in group_names:
+        out.update(IPA_GROUPS.get(g, []))
+    return out
+
+def validate_ipa_groups(strict: bool = False) -> None:
+    """
+    Light sanity checks. Set strict=True to raise on problems; otherwise prints warnings.
+    """
+    def warn(msg: str):
+        if strict:
+            raise ValueError(msg)
+        else:
+            print(f"[IPA GROUPS warning] {msg}")
+
+    # 1) Shapes
+    for name, vals in IPA_GROUPS.items():
+        if not isinstance(vals, list):
+            warn(f"Group '{name}' is {type(vals).__name__}; expected list.")
+            continue
+        for i, tok in enumerate(vals):
+            if not isinstance(tok, str):
+                warn(f"Group '{name}' element {i} is {type(tok).__name__}; expected str.")
+            if tok == "":
+                warn(f"Group '{name}' contains an empty string at index {i}.")
+
+    # 2) Long vs. Overlong distinct
+    long_set = set(IPA_GROUPS.get("LongVowels", []))
+    over_set = set(IPA_GROUPS.get("OverlongVowels", []))
+    if long_set & over_set:
+        warn("LongVowels and OverlongVowels overlap; they should be distinct (ː vs ːː).")
+
+    # 3) Duplicates inside groups
+    for name, vals in IPA_GROUPS.items():
+        seen, dups = set(), set()
+        for tok in vals:
+            if tok in seen:
+                dups.add(tok)
+            seen.add(tok)
+        if dups:
+            warn(f"Group '{name}' has duplicates: {sorted(dups)}")
 
 def expand_group_keywords(data):
     """
@@ -317,3 +371,5 @@ def expand_group_keywords(data):
         return result
     return data
 
+# Run a non-strict check at import (flip to strict=True if you prefer hard failures)
+validate_ipa_groups(strict=False)

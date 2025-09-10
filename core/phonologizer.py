@@ -1,4 +1,5 @@
 import json
+from evolution import evolver
 
 class Phonologizer:
     def __init__(self, language = "Generic"):
@@ -10,6 +11,14 @@ class Phonologizer:
     def tokenize(self, phrase):
         # Split phrase into a list of words
         return phrase.strip().split()
+    
+    def is_syllable_heavy(self, syllable_text: str, coda_matters: bool = True) -> bool:
+        """
+        Delegate to evolver's is_syllable_heavy unless overridden.
+        Base langs can override for custom heaviness logic.
+        """
+        return evolver.is_syllable_heavy(syllable_text, coda_matters)
+    
     
     def syllabify(self, word):
         # Stub for syllabification - override in subclass.

@@ -7,11 +7,12 @@ except ModuleNotFoundError:
     # when running directly from core/
     from phonologizer import Phonologizer
 
-
+from evolution import evolver as _evo
 from evolution.tokenizer import Tokenizer, DEFAULT_IPA_UNITS
 
 from evolution.ipa_dictionaries import IPA_GROUPS
 
+LATIN_DIPHTHONGS = {"ae", "au", "ei", "eu", "oe", "ui"}
 
 class PhonoLatin(Phonologizer):
     def __init__(self, style = "Classical", debug = False, override_path = None):
@@ -19,6 +20,7 @@ class PhonoLatin(Phonologizer):
         self.style = style
         self.debug = debug
         self.stress_overrides = {}
+        _evo.set_weight_fn(self.is_syllable_heavy)
 
         if override_path:
             try:
@@ -39,7 +41,7 @@ class PhonoLatin(Phonologizer):
             # Other digraphs
             'qu': 'kʷ', 'ph': "pʰ", 'ch': 'kʰ',
             # Consonants
-            'b': 'b', 'c': 'k', 'd': 'd', 'f': 'f', 'g': 'g',
+            'b': 'b', 'c': 'k', 'd': 'd', 'f': 'f', 'g': 'ɡ',
             'h': 'h', 'l': 'l', 'm': 'm', 'n': 'n', 'p': 'p',
             'q': 'k', 'r': 'r', 's': 's', 't': 't', 'v': 'w',
             'x': 'ks', 'z': 'dz',
@@ -52,7 +54,7 @@ class PhonoLatin(Phonologizer):
 
 
         # Latin-stage diphthongs you want to count as one nucleus in strict mode
-        self.diphthongs = {"ae", "au", "oe", "ei", "ui"}
+        self.diphthongs = set(LATIN_DIPHTHONGS)
 
         # A robust vowel set in IPA space (short, long, overlong); handles your ɪ/ʊ/ɛ cases too
         shorts = set(IPA_GROUPS.get("ShortVowels", []))
@@ -67,14 +69,10 @@ class PhonoLatin(Phonologizer):
 
         # === Tokenizer wiring (STRICT at base stage) ===
         self.legal_units = None  # you can give a curated Latin-stage inventory later
-        self.legal_compounds = {
-            "ae", "au", "oe", "ei", "ui",
-            "kʷ", "gʷ",
-            "r̩", "l̩", "m̩", "n̩",
-        }
+        self.legal_compounds = set(LATIN_DIPHTHONGS) | {"kʷ", "ɡʷ", "r̩", "l̩", "m̩", "n̩"}
 
         self.tokenizer = Tokenizer(
-            units=DEFAULT_IPA_UNITS or self.ipa_units,
+            units=DEFAULT_IPA_UNITS,
             legal_units=self.legal_units,
             legal_compounds=self.legal_compounds,
             strict_compounds=True,
@@ -99,7 +97,7 @@ class PhonoLatin(Phonologizer):
             syllables[0] = "ˈ" + syllables[0]
         else:
             penult = syllables[-2]
-            if self.is_heavy(penult):
+            if self.is_syllable_heavy(penult, coda_matters=True):
                 syllables[-2] = "ˈ" + syllables[-2]
             else:
                 syllables[-3] = "ˈ" + syllables[-3]
@@ -110,6 +108,35 @@ class PhonoLatin(Phonologizer):
 
         return syllables
 
+
+    def is_syllable_heavy(self, syllable_text: str, coda_matters: bool = True) -> bool:
+        """
+        Latin heaviness:
+        - long/overlong/nasalized-long nucleus (contains 'ː') → heavy
+        - diphthong nucleus (ae, au, oe, ei, eu, ui) → heavy
+        - closed syllable (final token not a vowel) → heavy if coda_matters
+        """
+        toks = _evo.tokenize_ipa(syllable_text)
+        if not toks:
+            return False
+
+        # long/overlong (and nasalized-long) vowels
+        if any("ː" in t for t in toks):
+            return True
+
+        # diphthong nucleus (your pipeline tokenizes these as single units)
+        if any(t in self.diphthongs for t in toks):
+            return True
+
+        # coda consonant ⇒ heavy, if we care about codas
+        if coda_matters:
+            if toks[-1] not in self.vowels:
+                return True
+
+        return False
+
+
+        
     def to_ipa(self, word: str, use_override: bool = True, verbose: bool = False) -> str:
         """
         Convert a Latin word in orthographic form to IPA with proper syllabification and stress.
@@ -143,16 +170,13 @@ class PhonoLatin(Phonologizer):
         mapped = self.apply_post_mapping_rules(mapped)
         ipa_string = "".join(mapped)
 
-        # 4) Tokenize the IPA string
-        ipa_units = self.tokenizer.tokenize(ipa_string)
+        # 4) Syllabify the token list (your existing method expects tokens)
+        syllables = self.syllabify(self.tokenizer.tokenize(ipa_string))
 
-        # 5) Syllabify the token list (your existing method expects tokens)
-        syllables = self.syllabify(ipa_units)
-
-        # 6) Stress assignment (your existing method)
+        # 5) Stress assignment (your existing method)
         stressed_syllables = self.assign_stress(syllables)
 
-        # 7) Debug printout (kept identical in spirit to your current version)
+        # 6) Debug printout (kept identical in spirit to your current version)
         if verbose or self.debug:
             print(f"Word: {word}")
             print(f"  Units:    {units}")
@@ -163,7 +187,7 @@ class PhonoLatin(Phonologizer):
             print(f"  Stressed: {stressed_syllables}")
             print("─" * 30)
 
-        # 8) Return final string
+        # 7) Return final string
         return ".".join(stressed_syllables)
 
 
@@ -244,23 +268,6 @@ class PhonoLatin(Phonologizer):
         print(f"  Final:    {final}")
         print("─" * 30)
 
-    def is_heavy(self, penult):
-        # Step 1: Check for long vowel
-        if 'ː' in penult:
-            return True
-        
-        # Step 2: Check for diphthong
-        if any(diph in penult for diph in self.diphthongs):
-            return True
-        
-
-        # Step 3: Check for coda
-        final = penult[-1] # Check last character of penult
-        if final not in self.vowels:
-            return True
-        
-        return False
-    
     def split_into_phonological_units(self, word):
         """
         Split orthography into phonological units.
@@ -271,7 +278,7 @@ class PhonoLatin(Phonologizer):
         - Optional: 'eu' included as a diphthong for Greek loans.
         """
         # If you don't care about 'eu', remove it from this set.
-        digraphs = {'ae', 'au', 'ei', 'oe', 'ui', 'ch', 'ph', 'qu'}
+        digraphs = {'ae', 'au', 'ei', 'eu', 'oe', 'ui', 'ch', 'ph', 'qu'}
         vowels_orth = set('aeiouyāēīōū')  # main.py lowercases input already
 
         result = []
@@ -302,14 +309,17 @@ class PhonoLatin(Phonologizer):
         return result
 
     def syllabify(self, units):
+
+        diphthongs = self.diphthongs
+        onset_clusters = {
+        'tr', 'dr', 'pr', 'br', 'cr', 'ɡr', 'fr',
+        'pl', 'bl', 'cl', 'ɡl', 'fl', 'kt', 'pʰ', 'kʰ', 'kʷ'
+        }
         vowels = {'a', 'e', 'i', 'o', 'u', 'ʊ', 'ɪ', 'ɛ', 'ɔ', 'ʏ', 
                 'aː', 'eː', 'iː', 'oː', 'uː', 
-                'ae', 'au', 'ei', 'oe', 'ui'}
-        diphthongs = {'ae', 'au', 'ei', 'oe', 'ui'}
-        onset_clusters = {
-            'tr', 'dr', 'pr', 'br', 'cr', 'gr', 'fr',
-            'pl', 'bl', 'cl', 'gl', 'fl', 'kt', 'pʰ', 'kʰ', 'kʷ'
+                'ae', 'au', 'ei', 'eu', 'oe', 'ui'
         }
+        
 
         syllables = []
         i = 0

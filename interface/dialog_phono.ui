@@ -19,7 +19,7 @@
      <x>10</x>
      <y>0</y>
      <width>241</width>
-     <height>182</height>
+     <height>201</height>
     </rect>
    </property>
    <layout class="QVBoxLayout" name="verticalLayout">
@@ -52,6 +52,13 @@
      <widget class="QRadioButton" name="radioButton_con">
       <property name="text">
        <string>Contextual rule</string>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="QRadioButton" name="radioButton_del">
+      <property name="text">
+       <string>Deletion rule</string>
       </property>
      </widget>
     </item>

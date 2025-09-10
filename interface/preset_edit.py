@@ -432,6 +432,23 @@ class UI_Main(QMainWindow):
             self.dialog_context.checkBox_solo.setChecked(rule[10])
             self.dialog_context.exec_()
 
+        elif rule_type == "del":
+            self.dialog_del = UI_Deletion()
+            self.dialog_del.ruleSent.connect(self.update_rule)
+
+            self.dialog_del.lineEdit_name.setText(rule[0])
+            self.dialog_del.textEdit_notes.setText(rule[2])
+            self.dialog_del.lineEdit_delete_list.setText(" ".join(rule[3]))
+            self.dialog_del.lineEdit_pre_trig.setText(" ".join(rule[4]))
+            self.dialog_del.lineEdit_post_trig.setText(" ".join(rule[5]))
+            self.dialog_del.lineEdit_pre_ex.setText(" ".join(rule[6]))
+            self.dialog_del.lineEdit_post_ex.setText(" ".join(rule[7]))
+            self.dialog_del.checkBox_skip.setChecked(rule[8])
+            self.dialog_del.checkBox_solo.setChecked(rule[9])
+            self.dialog_del.checkBox_sonority.setChecked(rule[10])
+            self.dialog_del.exec_()
+
+
         elif rule_type == "disc":
             self.dialog_assimilate = UI_Assimilate()
             self.dialog_assimilate.ruleSent.connect(self.update_rule)
@@ -486,6 +503,12 @@ class UI_Main(QMainWindow):
             self.dialog_syll.lineEdit_old_list.setText(" ".join(rule[3]))
             self.dialog_syll.lineEdit_new_list.setText(" ".join(rule[4]))
             self.dialog_syll.comboBox.setCurrentText(str(rule[5]))
+
+            self.dialog_syll.lineEdit_pre_trigs.setText(" ".join(rule[6]))
+            self.dialog_syll.lineEdit_post_trigs.setText(" ".join(rule[7]))
+            self.dialog_syll.checkBox_skip.setChecked(bool(rule[8]))
+            self.dialog_syll.checkBox_solo.setChecked(bool(rule[9]))
+            
             self.dialog_syll.exec_()
 
         self.is_dirty = True
@@ -687,6 +710,49 @@ class UI_Context(UI_Dialog):
         
         self.send_rule(rule)
 
+class UI_Deletion(UI_Dialog):
+    def __init__(self):
+        super(UI_Deletion, self).__init__()
+        uic.loadUi(UI_PATH("dialog_deletion.ui"), self)
+
+        # Universal widgets
+        self.define_widgets()
+
+        # Unique widgets (ids should match your .ui file)
+        self.lineEdit_delete_list = self.findChild(QLineEdit, "lineEdit_delete_list")
+        self.lineEdit_pre_trig    = self.findChild(QLineEdit, "lineEdit_pre_trig")
+        self.lineEdit_post_trig   = self.findChild(QLineEdit, "lineEdit_post_trig")
+        self.lineEdit_pre_ex      = self.findChild(QLineEdit, "lineEdit_pre_ex")
+        self.lineEdit_post_ex     = self.findChild(QLineEdit, "lineEdit_post_ex")
+        self.checkBox_skip        = self.findChild(QCheckBox, "checkBox_skip")
+        self.checkBox_solo        = self.findChild(QCheckBox, "checkBox_solo")
+        self.checkBox_sonority        = self.findChild(QCheckBox, "checkBox_sonority")
+
+        # Buttons
+        self.button_save.clicked.connect(self.make_rule)
+        self.button_close.clicked.connect(self.close)
+
+    def child_func(self, name, notes):
+        # Validate inputs
+        del_text = (self.lineEdit_delete_list.text() or "").strip()
+        if not del_text:
+            QMessageBox.warning(self, "Input Error", "Delete list cannot be empty.")
+            return
+
+        del_list  = del_text.split()
+        pre_list  = self.lineEdit_pre_trig.text().split()
+        post_list = self.lineEdit_post_trig.text().split()
+        ex_pre    = self.lineEdit_pre_ex.text().split()
+        ex_post   = self.lineEdit_post_ex.text().split()
+        skip      = self.checkBox_skip.isChecked()
+        solo      = self.checkBox_solo.isChecked()
+        sono      = self.checkBox_sonority.isChecked()
+
+        # Rule shape expected by EvolutionEngine → DeletionRule:
+        # [name, "del", notes, del_list, pre_list, post_list, except_pre, except_post, skip_stress, stress_solo]
+        rule = [name, "del", notes, del_list, pre_list, post_list, ex_pre, ex_post, skip, solo, sono]
+        self.send_rule(rule)
+
 class UI_Epenthetic(UI_Dialog):
     def __init__(self):
         super(UI_Epenthetic, self).__init__()
@@ -785,7 +851,7 @@ class UI_Syllabic(UI_Dialog):
         self.lineEdit_new_list = self.findChild(QLineEdit, "lineEdit_new_list")
 
         self.lineEdit_pre_trigs = self.findChild(QLineEdit, "lineEdit_pre_trigs")
-        self.lineEdit_new_trigs = self.findChild(QLineEdit, "lineEdit_new_trigs")
+        self.lineEdit_post_trigs = self.findChild(QLineEdit, "lineEdit_post_trigs")
 
         self.comboBox = self.findChild(QComboBox, "comboBox")
         self.checkBox_solo = self.findChild(QCheckBox, "checkBox_solo")
@@ -800,12 +866,15 @@ class UI_Syllabic(UI_Dialog):
             print("No find values given. Add to continue.")
             return
 
-        # Setup lineEdit functionality
-        new_list = self.parse_lineedit(self.lineEdit_new_list.text())
-        old_list = self.lineEdit_old_list.text().split()
-        position = self.comboBox.currentText().lower()
+        old_list   = self.lineEdit_old_list.text().split()
+        new_list   = self.parse_lineedit(self.lineEdit_new_list.text())
+        position   = self.comboBox.currentText().lower()
+        pre_list   = self.parse_lineedit(self.lineEdit_pre_trigs.text())
+        post_list  = self.parse_lineedit(self.lineEdit_post_trigs.text())
+        skip       = self.checkBox_skip.isChecked()
+        solo       = self.checkBox_solo.isChecked()
 
-        rule = [name, "syll", notes, old_list, new_list, position]
+        rule = [name, "syll", notes, old_list, new_list, position, pre_list, post_list, skip, solo]
         self.send_rule(rule)
 
 class UI_Phono(QDialog):
@@ -819,6 +888,7 @@ class UI_Phono(QDialog):
         # Define widgets
         self.ass = self.findChild(QRadioButton, "radioButton_ass")
         self.con = self.findChild(QRadioButton, "radioButton_con")
+        self.dele = self.findChild(QRadioButton, "radioButton_del")
         self.epen = self.findChild(QRadioButton, "radioButton_epen")
         self.stress = self.findChild(QRadioButton, "radioButton_stress")
         self.syll = self.findChild(QRadioButton, "radioButton_syll")
@@ -842,6 +912,11 @@ class UI_Phono(QDialog):
             self.dialog_context = UI_Context()
             self.dialog_context.ruleSent.connect(self.handle_rule_phono)
             self.dialog_context.exec_()
+
+        elif self.dele.isChecked():
+            self.dialog_deletion = UI_Deletion()
+            self.dialog_deletion.ruleSent.connect(self.handle_rule_phono)
+            self.dialog_deletion.exec_()
         
         elif self.epen.isChecked():
             print("Epenthetic selected")

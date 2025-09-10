@@ -1,5 +1,36 @@
+from typing import Callable
 from .ipa_dictionaries import expand_group_keywords, IPA_GROUPS
 from .tokenizer import Tokenizer, DEFAULT_IPA_UNITS
+
+# Sonority helpers (soft, language-agnostic)
+_SONORITY = {
+    "stops": {"p","b","t","d","k","ɡ","q","ʔ","c","ɟ","ʈ","ɖ"},
+    "fric":  {"f","v","θ","ð","s","z","ʃ","ʒ","ɸ","β","x","ɣ","ç","ʝ","χ","ʁ","h"},
+    "nasal": {"m","n","ɲ","ŋ","ɱ"},
+    "liquid":{"l","r","ɾ"},
+    "glide": {"j","w","ɥ","ɰ"},
+}
+def _sonority_rank(seg: str) -> int:
+    if seg in _SONORITY["stops"]:  return 1
+    if seg in _SONORITY["fric"]:   return 2
+    if seg in _SONORITY["nasal"]:  return 3
+    if seg in _SONORITY["liquid"]: return 4
+    if seg in _SONORITY["glide"]:  return 5
+    return 2  # safe default: treat unknowns like fricatives
+
+def _licensable_onset(tokens: list[str]) -> bool:
+    # s-cluster exception: s + stop (+ liquid/glide) is OK
+    if tokens and tokens[0] == "s":
+        if len(tokens) == 1: return True
+        if tokens[1] in _SONORITY["stops"]:
+            if len(tokens) == 2: return True
+            if len(tokens) == 3 and (tokens[2] in _SONORITY["liquid"] or tokens[2] in _SONORITY["glide"]):
+                return True
+    # general SSP: strictly non-decreasing sonority left→right
+    ranks = [_sonority_rank(t) for t in tokens]
+    return all(ranks[i] <= ranks[i+1] for i in range(len(ranks)-1))
+
+
 
 # One module-level tokenizer (permissive by default for evolution stage)
 _TOK = Tokenizer(units=DEFAULT_IPA_UNITS, strict_compounds=False)
@@ -7,27 +38,32 @@ _TOK = Tokenizer(units=DEFAULT_IPA_UNITS, strict_compounds=False)
 def tokenize_ipa(ipa_string):
     return _TOK.tokenize(ipa_string)
 
+# Language specific weight function (optional)
+_WEIGHT_FN: Callable[[str, bool], bool] | None = None
+
+def set_weight_fn(fn: Callable[[str, bool], bool] | None) -> None:
+    """Languages can register a custom heaviness function. Pass None to reset."""
+    global _WEIGHT_FN
+    _WEIGHT_FN = fn
+
 def is_syllable_heavy(syllable_text: str, coda_matters: bool = True) -> bool:
-    tokens = tokenize_ipa(syllable_text)
+    """Delegates to a language-supplied function if present; otherwise uses a safe generic fallback."""
+    if _WEIGHT_FN is not None:
+        return _WEIGHT_FN(syllable_text, coda_matters)
 
-    vowels = IPA_GROUPS.get("ShortVowels", [])
-    diphthongs = IPA_GROUPS.get("Diphthongs", [])
-
-    # Rule 1: Long vowel
-    if any("ː" in t for t in tokens):
+    # --- Generic fallback (very conservative) ---
+    toks = tokenize_ipa(syllable_text)
+    vowels = set(IPA_GROUPS.get("ShortVowels", []))
+    # long vowel nucleus
+    if any("ː" in t for t in toks):
         return True
-
-    # Rule 2: Diphthong
-    for i in range(len(tokens) - 1):
-        if tokens[i] in vowels and tokens[i + 1] in vowels:
-            if tokens[i] + tokens[i + 1] in diphthongs:
-                return True
-
-    # Rule 3: Ends in consonant
-    if coda_matters and tokens:
-        if tokens[-1] not in vowels and tokens[-1] != ".":
+    
+    # coda consonant
+    if coda_matters and toks:
+        last = toks[-1]
+        if last not in vowels and last not in {"i̯", "u̯", "."}:
             return True
-
+        
     return False
 
 # ===== WORD-LEVEL CLASSES =====
@@ -342,6 +378,7 @@ class DeletionRule(PhonoRule):
         self.except_post = raw_data[7] if len(raw_data) > 7 else []
         self.skip_stress = raw_data[8] if len(raw_data) > 8 else False
         self.stress_solo = raw_data[9] if len(raw_data) > 9 else False
+        self.sonority_safe = raw_data[10] if len(raw_data) > 10 else True
 
     def apply(self, word: Word):
         # Tokenize syllables
@@ -385,6 +422,22 @@ class DeletionRule(PhonoRule):
             if self.match_exclusion(phonemes, i, 1, self.except_pre, self.except_post):
                 i += 1
                 continue
+
+            # -- Sonority guard (optional) --
+            if self.sonority_safe:
+                # Bold the onset starting at the boundary to the right of the deletion
+                j = i + 1
+                onset = []
+                # Treat any token in Nuclei (or with ː) as a vowel-ish boundary
+                nuclei = set(IPA_GROUPS.get("Nuclei", []))
+                while j < len(phonemes) and phonemes[j] != "." and phonemes[j] not in nuclei and "ː" not in phonemes[j]:
+                    onset.append(phonemes[j])
+                    if len(onset) >= 3: break   # 2–3 is enough for the check
+                    j += 1
+
+                if not _licensable_onset(onset):
+                    i += 1
+                    continue
 
             edits.append(i)
             i += 1
