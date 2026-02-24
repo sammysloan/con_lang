@@ -1,3 +1,28 @@
+_COMBINING_TILDE = "̃"
+_VOWEL_CHARS = set("aeiouyɯɨʉɪʊʏɛɔæœøɐəɞɜʌɑɒ")
+
+def double_nasalize_diph(tok: str) -> str:
+    """
+    Insert a combining tilde after every vowel letter in the diphthong token.
+    Example: 'ai' -> 'ãĩ', 'iə' -> 'ĩə̃', 'ɔi' -> 'ɔ̃ĩ'
+    - Idempotent: if a vowel is already nasalized (next char = ̃), it won't add another.
+    - Leaves any trailing length marks (ː) untouched.
+    """
+    out = []
+    i = 0
+    while i < len(tok):
+        ch = tok[i]
+        out.append(ch)
+
+        # nasalize each vowel letter (but don't duplicate if already nasalized)
+        if ch in _VOWEL_CHARS:
+            nxt = tok[i + 1] if i + 1 < len(tok) else ""
+            if nxt != _COMBINING_TILDE:
+                out.append(_COMBINING_TILDE)
+        i += 1
+    return "".join(out)
+
+
 
 IPA_GROUPS = {
     # ===== CONS by MANNER
@@ -54,40 +79,40 @@ IPA_GROUPS = {
     ], 
 
     # ===== CONS by PLACE =====
-    "Bilabial": [
+    "Bilabials": [
         'm̥', 'm', 'p', 'b', 'pɸ', 'bβ','ɸ', 'β', 'β̞', 'ʙ̥', 'ʙ', 'ⱱ̟',
     ],
-    "Labiodental": [
+    "Labiodentals": [
         'ɱ̊', 'ɱ', 'p̪', 'b̪', 'f', 'v', 'ʋ', 'ⱱ'
     ],
-    "Linguolabial": [
+    "Linguolabials": [
         'n̼', 't̼', 'd̼', 'θ̼', 'ð̼', 'ɾ̼', 
     ],
-    "Dental": [
+    "Dentals": [
         't̪', 'd̪', 't̪s̪', 'd̪z̪', 't̪θ', 'd̪ð', 'θ', 'ð', 'ð̞', 'l̪'
     ],
-    "Alveolar": [
+    "Alveolars": [
         'n̥', 'n', 't', 'd', 'ts', 'dz', 'tɹ̝̊', 'dɹ̝', 's', 'z', 'θ̠', 'ð̠', 'ɹ', 'ɾ̥', 'ɾ', 'r̥', 'r', 'tɬ', 'dɮ', 'ɬ', 'ɮ', 'l', 'ɺ̥','ɺ',
     ],
-    "PostAlveolar": [
+    "PostAlveolars": [
         't̠ʃ', 'd̠ʒ', 't̠ɹ̠̊˔', 'd̠ɹ̠˔', 'ʃ', 'ʒ', 'ɹ̠̊˔', 'ɹ̠˔', 'ɹ̠', 'r̠', 'l̠'
     ],
-    "Retroflex": [
+    "Retroflexs": [
         'ɳ̊', 'ɳ', 'ʈ', 'ɖ', 'tʂ', 'dʐ', 'ʂ', 'ʐ', 'ɻ̊˔', 'ɻ˔', 'ɻ', 'ɽ̊', 'ɽ', 'ɽ̊r̥', 'ɽr', 'tꞎ', 'd𝼅', 'ꞎ', '𝼅', '𝼈̊', '𝼈', 'ɭ'
     ],
-    "Palatal": [
+    "Palatals": [
         'ɲ̊', 'ɲ', 'c', 'ɟ', 'tɕ', 'dʑ', 'cç', 'ɟʝ', 'ɕ', 'ʑ', 'ç', 'ʝ', 'j', 'c𝼆', 'ɟʎ̝', '𝼆', 'ʎ̝', 'ʎ̆'
     ],
-    "Velar": [
+    "Velars": [
         'ŋ̊', 'ŋ', 'k', 'ɡ', 'kx', 'ɡɣ', 'x', 'ɣ', 'ɰ', 'k𝼄', 'ɡʟ̝', '𝼄', 'ʟ̝', 'ʟ', 'ʟ̆'
     ],
-    "Uvular": [
+    "Uvulars": [
         'ɴ̥', 'ɴ', 'q', 'ɢ', 'qχ', 'ɢʁ', 'χ', 'ʁ', 'ʁ̞', 'ɢ̆', 'ʀ̥', 'ʀ', 'ʟ̠'
     ],
-    "Epiglottal": [
+    "Epiglottals": [
         'ʡ', 'ʡʜ', 'ʡʢ', 'ħ', 'ʕ', 'ʡ̆', 'ʜ', 'ʢ',
     ],
-    "Glottal": [
+    "Glottals": [
         'ʔ', 'ʔh', 'h', 'ɦ', 'ʔ̞'
     ],
     # ===== CONS by FLOW =====
@@ -232,18 +257,49 @@ IPA_GROUPS = {
     "LongVowels" : [],
     "OverlongVowels" : [],
 
+    # ===== DIPHTHONGS =====
+    "Diphthongs" : [
+        # Pan-Indo-European core
+        "ai", "au", "ei", "oi", "ou", "ui", "eu", "iu",
+        # Fronted sets
+        "ie", "ia", "io", "ye", "ya", "yo",
+        # Backed clusters (Romance, Germanic, etc.)
+        "ua", "ue", "uo",
+        # Open/mid combos
+        "ae", "ao", "eo", "oe",
+        # Extended IE/Greek/Slavic
+        "ei", "ai", "oi", "au", "eu",
+        # Southeast Asian style
+        "iə", "iɛ", "iɑ", "ia",
+        "uə", "uɛ", "uo", "ua",
+        "ɯa", "ɯə",
+        # Misc other common
+        "eo", "oa", "oe", "ao", "ɛi", "ɔi", "æi",
+        "ɑi", "ɑu", "ɔu", "ɛu",
+    ],
 
+    "NasalDiphthongs" : [], 
+    
     # ===== MISCELANEOUS =====
     "Glides": ['j', 'w', 'ɥ', 'ɰ'],
     "SyllabicConsonants" : ['r̩','l̩','m̩','n̩'],
+    "LabioVelars" : ['kʷ', 'ɡʷ', 'xʷ', 'ɣʷ', 'ŋʷ'],
 
     "Consonants" : [],
-    "Diphthongs" : [],
+    "Fricatives" : [],
+    
+    "NasalVowels" : [],
+    "NasalShortVowels" : [],
+    "NasalLongVowels" : [],
+    "NasalOverlongVowels" : [],
+
     "Nuclei" : [],
-    "Vocoids" : []
+    "Vocoids" : [],
+
+    "Boundary" : ['.']
 }
 
-# Build Consonants as a deduped list (preserve order)
+# CONSONANTS
 if not IPA_GROUPS["Consonants"]:
     parts = (
         IPA_GROUPS["Nasals"]
@@ -262,17 +318,43 @@ if not IPA_GROUPS["Consonants"]:
     )
     IPA_GROUPS["Consonants"] = list(dict.fromkeys(parts))
 
-if not IPA_GROUPS["Diphthongs"]:
-    for v1 in IPA_GROUPS["ShortVowels"]:
-        for v2 in IPA_GROUPS["ShortVowels"]:
-            if v1 != v2:
-                IPA_GROUPS["Diphthongs"].append(v1 + v2) 
+if not IPA_GROUPS["Fricatives"]:
+    IPA_GROUPS["Fricatives"] = (
+        IPA_GROUPS["NonSibilantFricatives"]
+        + IPA_GROUPS["SibilantFricatives"]
+    )
 
+# Longs
 if not IPA_GROUPS["LongVowels"]:
     IPA_GROUPS["LongVowels"] = [v + "ː" for v in IPA_GROUPS["ShortVowels"]]
 
+if not IPA_GROUPS["OverlongVowels"]:
+    IPA_GROUPS["OverlongVowels"] = [v + "ːː" for v in IPA_GROUPS["ShortVowels"]]
+
+# Nasalizations
+if not IPA_GROUPS["NasalShortVowels"]:
+    IPA_GROUPS["NasalShortVowels"] = [v + "̃" for v in IPA_GROUPS["ShortVowels"]]
+
+if not IPA_GROUPS["NasalLongVowels"]:
+    IPA_GROUPS["NasalLongVowels"] = [v[:-1] + "̃ː" for v in IPA_GROUPS["LongVowels"]]  # replace trailing ː with ̃ː
+
+if not IPA_GROUPS["NasalOverlongVowels"]:
+    IPA_GROUPS["NasalOverlongVowels"] = [v[:-2] + "̃ːː" for v in IPA_GROUPS["OverlongVowels"]]  # ːː -> ̃ːː
+
+if not IPA_GROUPS["NasalVowels"]:
+    IPA_GROUPS["NasalShortVowels"] = (
+        IPA_GROUPS["NasalLongVowels"]
+        + IPA_GROUPS["NasalOverlongVowels"]
+    )
+
+IPA_GROUPS["Diphthongs"] = list(dict.fromkeys(IPA_GROUPS["Diphthongs"]))  # dedupe
+
+# Build nasal diphthongs (double tilde), but DO NOT merge back into Diphthongs
+if IPA_GROUPS.get("Diphthongs") and not IPA_GROUPS.get("NasalDiphthongs"):
+    IPA_GROUPS["NasalDiphthongs"] = [double_nasalize_diph(d) for d in IPA_GROUPS["Diphthongs"]]
+
 if not IPA_GROUPS["Nuclei"]:
-    IPA_GROUPS["Nuclei"] = (
+    IPA_GROUPS["Nuclei"] = list(dict.fromkeys(
         IPA_GROUPS["CloseVowels"]
         + IPA_GROUPS["NearCloseVowels"]
         + IPA_GROUPS["CloseMidVowels"]
@@ -280,11 +362,10 @@ if not IPA_GROUPS["Nuclei"]:
         + IPA_GROUPS["OpenMidVowels"]
         + IPA_GROUPS["NearOpenVowels"]
         + IPA_GROUPS["OpenVowels"]
+        + IPA_GROUPS["Diphthongs"]
+        + IPA_GROUPS["NasalDiphthongs"]
         + IPA_GROUPS["SyllabicConsonants"]
-        )
-
-if not IPA_GROUPS["OverlongVowels"]:
-    IPA_GROUPS["OverlongVowels"] = [v + "ː" + "ː" for v in IPA_GROUPS["ShortVowels"]]
+    ))
 
 if not IPA_GROUPS["Vocoids"]:
     IPA_GROUPS["Vocoids"] = list(dict.fromkeys(
@@ -343,6 +424,9 @@ def expand_group_keywords(data):
     """
     def expand_token(token):
         if not token.startswith("*"):
+            return [token]
+        
+        if token in ("*Blank", "*NULL"):
             return [token]
 
         # Split by '+' after removing the '*'

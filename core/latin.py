@@ -12,11 +12,12 @@ from evolution.tokenizer import Tokenizer, DEFAULT_IPA_UNITS
 
 from evolution.ipa_dictionaries import IPA_GROUPS
 
-LATIN_DIPHTHONGS = {"ae", "au", "ei", "eu", "oe", "ui"}
+LATIN_DIPHTHONGS = {"ae", "au", "ei", "oe", "ui"}
 
 class PhonoLatin(Phonologizer):
     def __init__(self, style = "Classical", debug = False, override_path = None):
         super().__init__(language = "Latin")
+
         self.style = style
         self.debug = debug
         self.stress_overrides = {}
@@ -39,7 +40,7 @@ class PhonoLatin(Phonologizer):
             # Diphthongs (Classical Latin)
             'ae': 'ae', 'au': 'au', 'ei': 'ei', 'oe': 'oe', 'ui': 'ui',
             # Other digraphs
-            'qu': 'kʷ', 'ph': "pʰ", 'ch': 'kʰ',
+            'qu': 'kʷ', 'gu': 'ɡʷ','ph': "pʰ", 'ch': 'kʰ',
             # Consonants
             'b': 'b', 'c': 'k', 'd': 'd', 'f': 'f', 'g': 'ɡ',
             'h': 'h', 'l': 'l', 'm': 'm', 'n': 'n', 'p': 'p',
@@ -84,9 +85,21 @@ class PhonoLatin(Phonologizer):
         """
 
         """
+        if not syllables: 
+            return syllables # Avoid index crash from blank words
+        
+        enclitic_tail = {'kʷɛ', 'wɛ', 'nɛ', 'kɛ'}  # -que, -ve, -ne, -ce
         enclitic = None
-        if syllables[-1] in ('kʷɛ', 'wɛ','nɛ', 'kɛ'):
+
+        # Only detach an enclitic if there’s something to cling to
+        if syllables[-1] in enclitic_tail:
+            if len(syllables) == 1:
+                # Standalone enclitic: pick a safe default and bail
+                syllables[0] = 'ˈ' + syllables[0]   # or just `return syllables` if you prefer no stress on clitics
+                return syllables
+        
             enclitic = syllables.pop()
+
 
         n = len(syllables)
 
@@ -113,7 +126,7 @@ class PhonoLatin(Phonologizer):
         """
         Latin heaviness:
         - long/overlong/nasalized-long nucleus (contains 'ː') → heavy
-        - diphthong nucleus (ae, au, oe, ei, eu, ui) → heavy
+        - diphthong nucleus (ae, au, oe, ei, ui) → heavy
         - closed syllable (final token not a vowel) → heavy if coda_matters
         """
         toks = _evo.tokenize_ipa(syllable_text)
@@ -150,6 +163,20 @@ class PhonoLatin(Phonologizer):
             str: The IPA transcription with stress and syllable boundaries (e.g., 'ˈmaŋ.nʊs').
         """
 
+        def _coalesce_length(units):
+            out = []
+            for u in units:
+                if (
+                    u == LENGTH
+                    and out
+                    and out[-1] in VOWELS
+                    and LENGTH not in out[-1]
+                ):
+                    out[-1] = out[-1] + LENGTH
+                else:
+                    out.append(u)
+            return out
+
         # 0) Optional stress overrides (case‑insensitive convenience)
         if use_override and self.stress_overrides:
             for k in (word, word.capitalize(), word.upper()):
@@ -170,8 +197,16 @@ class PhonoLatin(Phonologizer):
         mapped = self.apply_post_mapping_rules(mapped)
         ipa_string = "".join(mapped)
 
+        VOWELS = {'a','e','i','o','u','y'}
+        LENGTH = 'ː'
+
+
+        # print("DEBUG quod tokens:", self.tokenizer.tokenize(ipa_string))
+
         # 4) Syllabify the token list (your existing method expects tokens)
-        syllables = self.syllabify(self.tokenizer.tokenize(ipa_string))
+        tokens = self.tokenizer.tokenize(ipa_string)
+        tokens = _coalesce_length(tokens)       # << ADD THIS LINE
+        syllables = self.syllabify(tokens)
 
         # 5) Stress assignment (your existing method)
         stressed_syllables = self.assign_stress(syllables)
@@ -190,8 +225,6 @@ class PhonoLatin(Phonologizer):
         # 7) Return final string
         return ".".join(stressed_syllables)
 
-
-       
     # Latin specific rules
     def apply_context_rules(self, phonemes):
         """
@@ -227,6 +260,12 @@ class PhonoLatin(Phonologizer):
             if cur == 'g' and nxt == 'n':
                 new.append('ŋ'); new.append('n')
                 i += 2
+                continue
+
+            # n → ŋ before velars (g, gu)
+            if cur == 'n' and nxt in ('g', 'gu'):
+                new.append('ŋ')
+                i += 1
                 continue
 
             new.append(cur)
@@ -275,10 +314,9 @@ class PhonoLatin(Phonologizer):
         - Treat ei/ui as diphthongs by default, *except* when a vowel follows
         (so 'eius', 'cuius', 'huius' split to e+i before the next vowel).
         - Keep common digraphs (ch, ph, qu) as single units.
-        - Optional: 'eu' included as a diphthong for Greek loans.
         """
-        # If you don't care about 'eu', remove it from this set.
-        digraphs = {'ae', 'au', 'ei', 'eu', 'oe', 'ui', 'ch', 'ph', 'qu'}
+
+        digraphs = {'ae', 'au', 'ei', 'oe', 'ui', 'ch', 'ph', 'gu', 'qu'}
         vowels_orth = set('aeiouyāēīōū')  # main.py lowercases input already
 
         result = []
@@ -289,6 +327,15 @@ class PhonoLatin(Phonologizer):
             # Try a digraph
             if i + 1 < n:
                 pair = word[i:i+2]
+
+                # if pair is 'gu' and the next char isn't a vowel, don't treat as digraph
+                if pair == 'gu':
+                    nxt = word[i+2] if i + 2 < n else ''
+                    if not nxt or nxt not in vowels_orth:
+                        result.append(word[i])  # 'g'
+                        i += 1                  # leave 'u' for next loop
+                        continue
+
                 if pair in digraphs:
                     # Look one more char ahead to decide ei/ui behavior
                     nxt = word[i+2] if i + 2 < n else ''
@@ -309,17 +356,17 @@ class PhonoLatin(Phonologizer):
         return result
 
     def syllabify(self, units):
-
+        
         diphthongs = self.diphthongs
         onset_clusters = {
         'tr', 'dr', 'pr', 'br', 'cr', 'ɡr', 'fr',
-        'pl', 'bl', 'cl', 'ɡl', 'fl', 'kt', 'pʰ', 'kʰ', 'kʷ'
+        'pl', 'bl', 'cl', 'ɡl', 'fl', 'pʰ', 'kʰ', 'kʷ', 'gʷ'
         }
         vowels = {'a', 'e', 'i', 'o', 'u', 'ʊ', 'ɪ', 'ɛ', 'ɔ', 'ʏ', 
                 'aː', 'eː', 'iː', 'oː', 'uː', 
-                'ae', 'au', 'ei', 'eu', 'oe', 'ui'
+                'ae', 'au', 'ei', 'oe', 'ui'
         }
-        
+
 
         syllables = []
         i = 0
@@ -340,6 +387,7 @@ class PhonoLatin(Phonologizer):
                 # Add vowel to nucleus
             if i < n and units[i] in vowels:
                 nucleus.append(units[i])
+
                 i += 1
                 # Check for non-diphthong second vowel (i.e. "glo.ri.a")
                 if i < n and units[i] in vowels and units[i-1] + units[i] not in diphthongs:
@@ -347,6 +395,7 @@ class PhonoLatin(Phonologizer):
                     syllables.append("".join(onset + nucleus))
                     onset = []
                     nucleus = [units[i]]
+
                     i += 1
 
             # Step 3: look ahead for post-vowel consonants
@@ -359,12 +408,14 @@ class PhonoLatin(Phonologizer):
                 # A) Special case: [ŋ, n] cluster
             if consonants[:2] == ['ŋ', 'n']:
                 syllables.append("".join(onset + nucleus + ['ŋ']))
+
                 i += 1
                 continue
                 
                 # B) No consonants
             elif len(consonants) == 0:
                 syllables.append("".join(onset + nucleus))
+                i = j  # advance to end
             
                 # C) Single consonant - begins new syll
             elif len(consonants) == 1:
@@ -379,6 +430,7 @@ class PhonoLatin(Phonologizer):
                 # E) Split illegal cluster
             else:
                 syllables.append("".join(onset + nucleus + consonants[:1]))
+
                 i += 1
                 j = i + 1 # Split cluster, begins new syll with con at 1
 
@@ -393,5 +445,6 @@ class PhonoLatin(Phonologizer):
             syllables[0] += syllables[1]
             syllables.pop()
 
+        print(f"[Latin:syllables] -> {syllables}")
         return syllables
 

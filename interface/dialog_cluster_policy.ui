@@ -42,12 +42,16 @@
       <item>
        <widget class="QLabel" name="label_target">
         <property name="text">
-         <string>Target values:</string>
+         <string>Allowed clusters:</string>
         </property>
        </widget>
       </item>
       <item>
-       <widget class="QLineEdit" name="lineEdit_target"/>
+       <widget class="QLineEdit" name="lineEdit_allow">
+        <property name="toolTip">
+         <string>Clusters listed thusly: t r, k l, etc.</string>
+        </property>
+       </widget>
       </item>
      </layout>
     </item>
@@ -56,38 +60,21 @@
       <item>
        <widget class="QLabel" name="label_trigger">
         <property name="text">
-         <string>Trigger values:</string>
+         <string>Banned clusters:</string>
         </property>
        </widget>
       </item>
       <item>
-       <widget class="QLineEdit" name="lineEdit_trigger"/>
-      </item>
-     </layout>
-    </item>
-    <item>
-     <layout class="QHBoxLayout" name="horizontalLayout_3">
-      <item>
-       <widget class="QLabel" name="label_replace">
-        <property name="text">
-         <string>Replace values:</string>
+       <widget class="QLineEdit" name="lineEdit_ban">
+        <property name="toolTip">
+         <string>Clusters listed thusly: t r, k l, etc.</string>
         </property>
        </widget>
-      </item>
-      <item>
-       <widget class="QLineEdit" name="lineEdit_replace"/>
       </item>
      </layout>
     </item>
     <item>
      <layout class="QHBoxLayout" name="horizontalLayout_4">
-      <item>
-       <widget class="QCheckBox" name="checkBox_disc">
-        <property name="text">
-         <string>Discontiguous</string>
-        </property>
-       </widget>
-      </item>
       <item>
        <widget class="Line" name="line">
         <property name="orientation">
@@ -96,20 +83,30 @@
        </widget>
       </item>
       <item>
-       <widget class="QLabel" name="label_max">
-        <property name="minimumSize">
-         <size>
-          <width>0</width>
-          <height>0</height>
-         </size>
-        </property>
+       <widget class="QLabel" name="label">
         <property name="text">
-         <string>Maximum distance:</string>
+         <string>Position:</string>
         </property>
        </widget>
       </item>
       <item>
-       <widget class="QSpinBox" name="spinBox_max"/>
+       <widget class="QComboBox" name="combo_position">
+        <item>
+         <property name="text">
+          <string>Onset</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Coda</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Any</string>
+         </property>
+        </item>
+       </widget>
       </item>
       <item>
        <spacer name="horizontalSpacer_4">
@@ -124,34 +121,61 @@
         </property>
        </spacer>
       </item>
+      <item>
+       <widget class="QLabel" name="label_2">
+        <property name="text">
+         <string>Scope:</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QComboBox" name="combo_scope">
+        <property name="currentText">
+         <string>Word initial</string>
+        </property>
+        <item>
+         <property name="text">
+          <string>Word initial</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Word medial</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Word final</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Any</string>
+         </property>
+        </item>
+       </widget>
+      </item>
      </layout>
     </item>
     <item>
      <layout class="QHBoxLayout" name="horizontalLayout_6">
       <item>
-       <widget class="QCheckBox" name="checkBox_prog">
+       <widget class="QLabel" name="label_max">
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>0</height>
+         </size>
+        </property>
         <property name="text">
-         <string>Progressive</string>
+         <string>Max check:</string>
         </property>
        </widget>
       </item>
       <item>
-       <spacer name="horizontalSpacer_2">
-        <property name="orientation">
-         <enum>Qt::Horizontal</enum>
-        </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>40</width>
-          <height>20</height>
-         </size>
-        </property>
-       </spacer>
-      </item>
-      <item>
-       <widget class="QCheckBox" name="checkBox_skip">
-        <property name="text">
-         <string>Skip stress   </string>
+       <widget class="QSpinBox" name="spin_max_check">
+        <property name="value">
+         <number>3</number>
         </property>
        </widget>
       </item>
@@ -167,13 +191,6 @@
          </size>
         </property>
        </spacer>
-      </item>
-      <item>
-       <widget class="QCheckBox" name="checkBox_solo_gem">
-        <property name="text">
-         <string>Solo Geminates</string>
-        </property>
-       </widget>
       </item>
      </layout>
     </item>

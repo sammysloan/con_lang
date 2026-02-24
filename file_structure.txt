@@ -19,16 +19,20 @@ Structure:
 		tokenizer.py
 		evolver.py
 		ipa_dictionaries.py
+		othographer.py
 	/presets
 		presets.db
 	/interface
 		__init__.py
 		dialog_assimilate.ui
+		dialog_cluster_policy
 		dialog_context.ui
+		dialog_deletion.ui
 		dialog_epen.ui
 		dialog_phono.ui
 		dialog_syll.ui
 		dialog_stress.ui
 		evo.ui
 		preset_edit.py
+		orthographer_editor.py
 	

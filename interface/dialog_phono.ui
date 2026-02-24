@@ -18,8 +18,8 @@
     <rect>
      <x>10</x>
      <y>0</y>
-     <width>241</width>
-     <height>201</height>
+     <width>244</width>
+     <height>224</height>
     </rect>
    </property>
    <layout class="QVBoxLayout" name="verticalLayout">
@@ -42,59 +42,78 @@
      </widget>
     </item>
     <item>
-     <widget class="QRadioButton" name="radioButton_ass">
-      <property name="text">
-       <string>Assimilation rule</string>
-      </property>
-     </widget>
-    </item>
-    <item>
-     <widget class="QRadioButton" name="radioButton_con">
-      <property name="text">
-       <string>Contextual rule</string>
-      </property>
-     </widget>
-    </item>
-    <item>
-     <widget class="QRadioButton" name="radioButton_del">
-      <property name="text">
-       <string>Deletion rule</string>
-      </property>
-     </widget>
-    </item>
-    <item>
-     <widget class="QRadioButton" name="radioButton_epen">
-      <property name="text">
-       <string>Epenthetic rule</string>
-      </property>
-     </widget>
-    </item>
-    <item>
-     <widget class="QRadioButton" name="radioButton_stress">
-      <property name="text">
-       <string>Stress rule</string>
-      </property>
-     </widget>
-    </item>
-    <item>
-     <widget class="QRadioButton" name="radioButton_syll">
-      <property name="text">
-       <string>Syllabic rule</string>
-      </property>
-     </widget>
-    </item>
-    <item>
-     <spacer name="verticalSpacer">
-      <property name="orientation">
-       <enum>Qt::Vertical</enum>
-      </property>
-      <property name="sizeHint" stdset="0">
-       <size>
-        <width>20</width>
-        <height>40</height>
-       </size>
-      </property>
-     </spacer>
+     <layout class="QHBoxLayout" name="horizontalLayout_2">
+      <item>
+       <layout class="QVBoxLayout" name="verticalLayout_3">
+        <item>
+         <widget class="QRadioButton" name="radioButton_ass">
+          <property name="text">
+           <string>Assimilation rule</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QRadioButton" name="radioButton_con">
+          <property name="text">
+           <string>Contextual rule</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QRadioButton" name="radioButton_del">
+          <property name="text">
+           <string>Deletion rule</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QRadioButton" name="radioButton_epen">
+          <property name="text">
+           <string>Epenthetic rule</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QRadioButton" name="radioButton_syll">
+          <property name="text">
+           <string>Syllabic rule</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QVBoxLayout" name="verticalLayout_2">
+        <item>
+         <widget class="QRadioButton" name="radioButton_clp">
+          <property name="text">
+           <string>Custer rule</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QRadioButton" name="radioButton_stress">
+          <property name="text">
+           <string>Stress rule</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="verticalSpacer">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>20</width>
+            <height>40</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </item>
+     </layout>
     </item>
     <item>
      <layout class="QHBoxLayout" name="horizontalLayout">

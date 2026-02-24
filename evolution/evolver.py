@@ -18,6 +18,32 @@ def _sonority_rank(seg: str) -> int:
     if seg in _SONORITY["glide"]:  return 5
     return 2  # safe default: treat unknowns like fricatives
 
+def _cluster_policy_decision(position, syll_idx, n_sylls, cons_seq, rule):
+    if not cons_seq:
+        return None
+
+    scope = _scope_for_index(syll_idx, n_sylls)
+    if rule.position not in (position, "any"):
+        return None
+    if rule.scope not in (scope, "any"):
+        return None
+
+    tup = tuple(cons_seq)
+    maxL = rule.max_check
+    allow = getattr(rule, "allow_set", set())
+    ban = getattr(rule, "ban_set", set())
+
+    matched_allow = any(tuple(tup[:L]) in allow for L in range(2, min(maxL, len(tup)) + 1))
+    if matched_allow:
+        return True
+
+    matched_ban = any(tuple(tup[:L]) in ban for L in range(2, min(maxL, len(tup)) + 1))
+    if matched_ban:
+        return False
+
+    return None
+
+
 def _licensable_onset(tokens: list[str]) -> bool:
     # s-cluster exception: s + stop (+ liquid/glide) is OK
     if tokens and tokens[0] == "s":
@@ -26,10 +52,40 @@ def _licensable_onset(tokens: list[str]) -> bool:
             if len(tokens) == 2: return True
             if len(tokens) == 3 and (tokens[2] in _SONORITY["liquid"] or tokens[2] in _SONORITY["glide"]):
                 return True
-    # general SSP: strictly non-decreasing sonority left→right
+    # general SSP: sonority left→right
     ranks = [_sonority_rank(t) for t in tokens]
     return all(ranks[i] <= ranks[i+1] for i in range(len(ranks)-1))
 
+
+def _scope_for_index(i: int, n: int) -> str:
+    if i == 0: return "word_initial"
+    if i == n - 1: return "word_final"
+    return "word_medial"
+
+def _onset_tokens(tokens: list[str], nuclei: set[str]) -> list[str]:
+    onset = []
+    for t in tokens:
+        if t in nuclei:
+            break
+        onset.append(t)
+    return onset
+
+def _coda_tokens(tokens: list[str], nuclei: set[str]) -> list[str]:
+    # everything after the last nucleus
+    last_nuc = -1
+    for j, t in enumerate(tokens):
+        if t in nuclei:
+            last_nuc = j
+    return tokens[last_nuc+1:] if last_nuc >= 0 else tokens
+
+def _prep_ctx_list(seq_list):
+    out = []
+    for s in (seq_list or []):
+        if s == "*Blank":
+            out.append(["*Blank"]) 
+        else:
+            out.append(tokenize_ipa(s))
+    return out
 
 
 # One module-level tokenizer (permissive by default for evolution stage)
@@ -133,6 +189,10 @@ class Rule:
         raise NotImplementedError("This rule must implement apply()")
 
 class PhonoRule(Rule):
+    def __init__(self, raw_data):
+        super().__init__(raw_data)
+        self.cluster_policies = []
+
     def match_stress(self, syll_index, stress_index, stress_solo, skip_stress):
         if skip_stress and syll_index == stress_index:
             return False
@@ -151,36 +211,75 @@ class PhonoRule(Rule):
         return i
 
     def match_context(self, phonemes, i, old_len, pre_list, post_list):
-        i_pre = self.skip_boundaries_backward(phonemes, i)
-        i_post = self.skip_boundaries_forward(phonemes, i + old_len)
+        def _pre_anchor(pre_seq):
+            if pre_seq and pre_seq[-1] == ".":
+                return i  # look immediately before i, boundary-inclusive
+            return self.skip_boundaries_backward(phonemes, i)
 
-        pre_ok = any(
-            phonemes[i_pre - len(pre):i_pre] == list(pre)
-            for pre in pre_list if i_pre >= len(pre)
-        ) if pre_list else True
+        def _post_anchor(post_seq):
+            if post_seq and post_seq[0] == ".":
+                return i + old_len  # look immediately after match, boundary-inclusive
+            return self.skip_boundaries_forward(phonemes, i + old_len)
 
-        post_ok = any(
-            phonemes[i_post:i_post + len(post)] == list(post)
-            for post in post_list if i_post + len(post) <= len(phonemes)
-        ) if post_list else True
+        pre_ok = True
+        if pre_list:
+            pre_ok = False
+            for pre in pre_list:
+                if pre == ["*Blank"]:
+                    if i == 0 or phonemes[i - 1] == ".":
+                        pre_ok = True
+                        break
 
+                anchor = _pre_anchor(pre)
+                if anchor >= len(pre) and phonemes[anchor - len(pre):anchor] == list(pre):
+                    pre_ok = True
+                    break
+
+        post_ok = True
+        if post_list:
+            post_ok = False
+            for post in post_list:
+                if post == ["*Blank"]: 
+                    if i + old_len >= len(phonemes) or phonemes[i + old_len] == ".":
+                        post_ok = True
+                        break
+
+                anchor = _post_anchor(post)
+                if anchor + len(post) <= len(phonemes) and phonemes[anchor:anchor + len(post)] == list(post):
+                    post_ok = True
+                    break
+        
         return pre_ok and post_ok
 
     def match_exclusion(self, phonemes, i, old_len, except_pre, except_post):
-        i_pre = self.skip_boundaries_backward(phonemes, i)
-        i_post = self.skip_boundaries_forward(phonemes, i + old_len)
+        def _pre_anchor(pre_seq):
+            if pre_seq and pre_seq[-1] == ".":
+                return i
+            return self.skip_boundaries_backward(phonemes, i)
 
-        pre_hit = any(
-            phonemes[i_pre - len(pre):i_pre] == list(pre)
-            for pre in except_pre if i_pre >= len(pre)
-        ) if except_pre else False
+        def _post_anchor(post_seq):
+            if post_seq and post_seq[0] == ".":
+                return i + old_len
+            return self.skip_boundaries_forward(phonemes, i + old_len)
 
-        post_hit = any(
-            phonemes[i_post:i_post + len(post)] == list(post)
-            for post in except_post if i_post + len(post) <= len(phonemes)
-        ) if except_post else False
+        pre_hit = False
+        if except_pre:
+            for pre in except_pre:
+                anchor = _pre_anchor(pre)
+                if anchor >= len(pre) and phonemes[anchor - len(pre):anchor] == list(pre):
+                    pre_hit = True
+                    break
+
+        post_hit = False
+        if except_post:
+            for post in except_post:
+                anchor = _post_anchor(post)
+                if anchor + len(post) <= len(phonemes) and phonemes[anchor:anchor + len(post)] == list(post):
+                    post_hit = True
+                    break
 
         return pre_hit or post_hit
+
 
     def rebuild_syllables(self, phonemes, stress_index):
         syllables = []
@@ -203,109 +302,125 @@ class PhonoRule(Rule):
     def refine_syllables(self, syllables):
         """
         Refines a list of syllables to ensure each contains a valid phonological nucleus.
-        - Avoids merging onsets like 'sp', 'sk', 'kl', etc.
-        - Prevents merging prosthetic syllables like 'is' with following onset.
+        - Uses sonority sequencing to prevent illegal onset merges.
+        - Prevents merging prosthetic syllables with following onset.
         - Rebalances nucleus-only syllables via coda sharing from previous syllable.
         """
-        base_vowels = {
-            'i', 'y', 'ɨ', 'ʉ', 'ɯ', 'u',
-            'ɪ', 'ʏ', 'ʊ',
-            'e', 'ø', 'ɘ', 'ɵ', 'ɤ', 'o',
-            'e̞', 'ø̞', 'ə', 'ɤ̞', 'o̞',
-            'ɛ', 'œ', 'ɜ', 'ɞ', 'ʌ', 'ɔ',
-            'æ', 'ɐ',
-            'a', 'ɶ', 'ä', 'ɑ', 'ɒ'
-        }
 
-        diphthongs = {
-            'ai', 'ei', 'oi', 'au', 'eu', 'ou',
-            'ae', 'oe', 'ui'
-        }
-
-        syllabic_consonants = {
-            'r̩', 'l̩', 'm̩', 'n̩', 'h̥', 'h₁̥', 'h₂̥', 'h₃̥'
-        }
-
-        # Legal Latin-ish onset clusters
-        onset_clusters = {
-            'pr', 'br', 'tr', 'dr', 'kr', 'gr', 'fr',
-            'pl', 'bl', 'kl', 'gl', 'fl', 'sp', 'st', 'sk',
-        }
-
-        nuclei = set()
-        for v in base_vowels:
-            nuclei.add(v)
-            nuclei.add(v + 'ː')
-            nuclei.add(v + 'ːː')
-            nuclei.add(v + '̃')
-            nuclei.add(v + '̃ː')
-            nuclei.add(v + '̃ːː')
-        nuclei.update(diphthongs)
-        nuclei.update(syllabic_consonants)
+        nuclei = set(IPA_GROUPS.get("Nuclei", []))
+        short_vowels = set(IPA_GROUPS.get("ShortVowels", []))  # for a tiny safety fallback
 
         def has_nucleus(syllable):
-            tokens = tokenize_ipa(syllable.text)
-            return any(p in nuclei for p in tokens)
+            toks = tokenize_ipa(syllable.text)
+            if any(t in nuclei for t in toks):
+                return True
+            # belt-and-suspenders: vowel + combining tilde split as separate tokens
+            return any(i + 1 < len(toks) and toks[i] in short_vowels and toks[i + 1] == "̃"
+                    for i in range(len(toks)))
 
         def starts_with_nucleus(syllable):
-            tokens = tokenize_ipa(syllable.text)
-            return tokens and tokens[0] in nuclei
-
-        def starts_with_legal_cluster(syllable):
-            tokens = tokenize_ipa(syllable.text)
-            return len(tokens) >= 2 and tokens[0] + tokens[1] in onset_clusters
-
-        def is_legal_onset(tokens):
-            if len(tokens) == 1:
-                return True  # single consonant like 's', 'k'
-            return tokens[0] + tokens[1] in onset_clusters
+            toks = tokenize_ipa(syllable.text)
+            if not toks:
+                return False
+            if toks[0] in nuclei:
+                return True
+            # also treat leading vowel + combining tilde as a nucleus-start
+            return len(toks) >= 2 and toks[0] in short_vowels and toks[1] == "̃"
 
         i = 0
         while i < len(syllables):
             curr = syllables[i]
 
             if has_nucleus(curr):
-                # Pull coda from previous if current is a lone nucleus
-                tokens = tokenize_ipa(curr.text)
-                if len(tokens) == 1 and tokens[0] in nuclei and i > 0:
+                # If current syllable is just a nucleus token, borrow previous coda as onset.
+                toks = tokenize_ipa(curr.text)
+                if len(toks) == 1 and (toks[0] in nuclei or (toks[0] in short_vowels)) and i > 0:
                     prev = syllables[i - 1]
-                    prev_tokens = tokenize_ipa(prev.text)
-                    if prev_tokens and prev_tokens[-1] not in nuclei:
-                        moved = prev_tokens[-1]
-                        prev.text = "".join(prev_tokens[:-1])
+                    prev_toks = tokenize_ipa(prev.text)
+                    if prev_toks and prev_toks[-1] not in nuclei:
+                        moved = prev_toks[-1]
+                        prev.text = "".join(prev_toks[:-1])
                         curr.text = moved + curr.text
                 i += 1
                 continue
 
-            # MERGE FORWARD: if current has no nucleus, try to merge forward
-            if not has_nucleus(curr) and i + 1 < len(syllables):
-                next_syll = syllables[i + 1]
-                # Prefer merging into syllables starting with nucleus or legal cluster
-                next_tokens = tokenize_ipa(next_syll.text)
 
-                # Always merge if next starts with nucleus (nucleus can absorb onset)
-                if starts_with_nucleus(next_syll):
-                    next_syll.text = curr.text + next_syll.text
+            # MERGE FORWARD: if current has no nucleus, try to merge into the next syllable
+            if i + 1 < len(syllables):
+                nxt = syllables[i + 1]
+                nxt_toks = tokenize_ipa(nxt.text)
+                onset = _onset_tokens(nxt_toks, nuclei)
+
+
+                policy_dec = None
+                for rule in self.cluster_policies:
+                    d = _cluster_policy_decision("onset", i+1, len(syllables), onset, rule)
+                    if d is not None:
+                        policy_dec = d
+
+                if policy_dec is False:
+                    pass
+                elif policy_dec is True:
+                    nxt.text = curr.text + nxt.text
                     syllables.pop(i)
                     continue
 
-                # Otherwise: merge only if next does not start with a legal onset
-                if not is_legal_onset(next_tokens):
-                    next_syll.text = curr.text + next_syll.text
+                # If next starts with a nucleus, absorb curr into it.
+                if starts_with_nucleus(nxt):
+                    nxt.text = curr.text + nxt.text
                     syllables.pop(i)
                     continue
 
-            # MERGE BACKWARD: only if current is NOT a legal onset
-            curr_tokens = tokenize_ipa(curr.text)
-            if i > 0 and not is_legal_onset(curr_tokens):
+                # Otherwise: only merge if the next onset is NOT licensable by SSP (incl. s-cluster exception).
+                if not _licensable_onset(nxt_toks):
+                    nxt.text = curr.text + nxt.text
+                    syllables.pop(i)
+                    continue
+
+
+            # A syllable with no nucleus may not stand alone.
+            if not has_nucleus(curr):
+                # Prefer attaching forward (as onset) if a next syllable exists
+                if i + 1 < len(syllables):
+                    syllables[i + 1].text = curr.text + syllables[i + 1].text
+                    syllables.pop(i)
+                    continue
+                # Otherwise, attach backward (as coda) if a previous syllable exists
+                if i > 0:
+                    syllables[i - 1].text += curr.text
+                    syllables.pop(i)
+                    i -= 1
+                    continue
+                # If it's the only syllable, nothing to merge with — just leave it.
+
+            # MERGE BACKWARD: if curr isn't a licensable onset, attach it to the previous syllable
+            curr_toks = tokenize_ipa(curr.text)
+            if i > 0 and not _licensable_onset(curr_toks):
                 syllables[i - 1].text += curr.text
                 syllables.pop(i)
                 i -= 1
                 continue
 
+            # ==== INSERT: ClusterPolicy for CURRENT CODA ====
+            curr_toks = tokenize_ipa(curr.text)
+            coda = _coda_tokens(curr_toks, nuclei)
+
+            policy_dec = None
+            for rule in self.cluster_policies:
+                d = _cluster_policy_decision("coda", i, len(syllables), coda, rule)
+                if d is not None:
+                    policy_dec = d
+
+            if policy_dec is False and i + 1 < len(syllables) and coda:
+                # Coda explicitly banned → push one consonant forward
+                last = coda[-1]
+                # Remove the last token's literal slice; this assumes tokens are single-codepoint strings
+                curr.text = curr.text[:-len(last)]
+                syllables[i + 1].text = last + syllables[i + 1].text
+                continue
+
             i += 1
 
-        
         return syllables
 
 # ===== PHONORULES ====
@@ -320,6 +435,8 @@ class AssimilationRule(PhonoRule):
         self.replace = raw_data[5]
         self.regressive = raw_data[6]  # direction: True = reg, False = prog
         self.skip_stress = raw_data[7]
+        self.require_identical = raw_data[8] if len(raw_data) > 8 else False
+
 
     def apply(self, word):
         # Flatten syllables into list of [syll_index, phoneme, is_stressed]
@@ -340,6 +457,11 @@ class AssimilationRule(PhonoRule):
                 continue
 
             neighbor = phonemes[i + 1] if self.regressive else phonemes[i - 1]
+
+            # Geminate check
+            if self.require_identical:
+                if current[1] != neighbor[1]:
+                    continue
 
             if current[1] in self.targets and neighbor[1] in self.triggers:
                 target_index = self.targets.index(current[1])
@@ -366,6 +488,7 @@ class AssimilationRule(PhonoRule):
         word.syllables = syllables
 
 class DeletionRule(PhonoRule):
+    nuclei = set(IPA_GROUPS.get("Nuclei", [])) | set(IPA_GROUPS.get("ShortVowels", []))
     def __init__(self, raw_data):
         super().__init__(raw_data)
         self.name = raw_data[0]
@@ -395,6 +518,13 @@ class DeletionRule(PhonoRule):
             phonemes.pop()
             syllable_map.pop()
 
+        pre_list_tok    = _prep_ctx_list(self.pre_list)
+        post_list_tok   = _prep_ctx_list(self.post_list)
+        except_pre_tok  = _prep_ctx_list(self.except_pre)
+        except_post_tok = _prep_ctx_list(self.except_post)
+
+
+
         # Stress index
         stress_index = word.get_stress_index()
 
@@ -409,17 +539,19 @@ class DeletionRule(PhonoRule):
                 i += 1
                 continue
 
+            
+
             # Stress filter
             if not self.match_stress(syll_idx, stress_index, self.stress_solo, self.skip_stress):
                 i += 1
                 continue
 
             # Context filters
-            if not self.match_context(phonemes, i, 1, self.pre_list, self.post_list):
+            if not self.match_context(phonemes, i, 1, pre_list_tok, post_list_tok):
                 i += 1
                 continue
 
-            if self.match_exclusion(phonemes, i, 1, self.except_pre, self.except_post):
+            if self.match_exclusion(phonemes, i, 1, except_pre_tok, except_post_tok):
                 i += 1
                 continue
 
@@ -429,8 +561,7 @@ class DeletionRule(PhonoRule):
                 j = i + 1
                 onset = []
                 # Treat any token in Nuclei (or with ː) as a vowel-ish boundary
-                nuclei = set(IPA_GROUPS.get("Nuclei", []))
-                while j < len(phonemes) and phonemes[j] != "." and phonemes[j] not in nuclei and "ː" not in phonemes[j]:
+                while j < len(phonemes) and phonemes[j] != "." and phonemes[j] not in self.nuclei and "ː" not in phonemes[j]:
                     onset.append(phonemes[j])
                     if len(onset) >= 3: break   # 2–3 is enough for the check
                     j += 1
@@ -463,6 +594,9 @@ class DiscontiguousRule(PhonoRule):
         self.regressive = raw_data[6]
         self.skip_stress = raw_data[7]
         self.max_distance = raw_data[8]
+        self.require_identical = raw_data[11] if len(raw_data) > 12 else False
+
+
 
     def apply(self, word: Word):
         # === Flatten into [syll_index, symbol, is_stressed]
@@ -591,6 +725,48 @@ class EpentheticRule(PhonoRule):
         else:
             word.syllables = word.syllables[:idx] + new_syllables + word.syllables[idx+1:]
 
+class ClusterPolicyRule(PhonoRule):
+    """
+    A non-transformational rule that constrains legal consonant clusters
+    for onsets and codas. Does not modify words directly.
+    Instead, its parameters are consumed by the syllabifier.
+    """
+
+    def __init__(self, data):
+        super().__init__(data)
+        # Expected data format from preset_edit:
+        # [name, "clp", notes, position, scope, allow, ban, max_check]
+        self.name = data[0]
+        self.rule_type = data[1]
+        self.notes = data[2]
+        self.position = data[3]
+        self.scope = data[4]
+        self.allow = [tuple(c) for c in (data[5] or [])]
+        self.ban   = [tuple(c) for c in (data[6] or [])]
+        self.max_check = int(data[7]) if len(data) > 7 else 3
+
+        # Precompute lookup sets for speed
+        self.allow_set = set(self.allow)
+        self.ban_set   = set(self.ban)
+
+    def apply(self, word_obj):
+        """
+        ClusterPolicy does not transform the word directly.
+        We simply return it unchanged.
+        """
+        return word_obj
+
+    def to_dict(self):
+        """Optional: convenience for serialization."""
+        return {
+            "type": "ClusterPolicy",
+            "position": self.position,
+            "scope": self.scope,
+            "allow": [list(c) for c in self.allow],
+            "ban": [list(c) for c in self.ban],
+            "max_check": self.max_check,
+        }
+
 class ContextualRule(PhonoRule):
     def apply(self, word: Word):
         old_list      = self.params[0]
@@ -603,12 +779,12 @@ class ContextualRule(PhonoRule):
         stress_solo   = self.params[7] if len(self.params) > 7 else False
 
         # Tokenize lists
-        old_list = [tokenize_ipa(seq) for seq in old_list]
-        new_list = [tokenize_ipa(seq) for seq in new_list]
-        pre_list = [tokenize_ipa(seq) for seq in pre_list]
-        post_list = [tokenize_ipa(seq) for seq in post_list]
-        except_pre = [tokenize_ipa(seq) for seq in except_pre]
-        except_post = [tokenize_ipa(seq) for seq in except_post]
+        old_list    = [tokenize_ipa(seq) for seq in old_list]
+        new_list    = [tokenize_ipa(seq) for seq in new_list]
+        pre_list    = _prep_ctx_list(pre_list)
+        post_list   = _prep_ctx_list(post_list)
+        except_pre  = _prep_ctx_list(except_pre)
+        except_post = _prep_ctx_list(except_post)
 
 
 
@@ -704,9 +880,24 @@ class SyllabicContextAdapter(ContextualRule):
         subword.syllables[0].stressed = target.stressed
 
         super().apply(subword)
+        
+        # --- NEW: if the scoped edit deleted the syllable entirely, drop it
+        if not subword.syllables or all(s.text == "" for s in subword.syllables):
+            was_stressed = target.stressed
+            # remove the empty syllable
+            del word.syllables[self.syll_index]
+            # if we just deleted the stressed syllable, pass stress to a neighbor
+            if was_stressed and word.syllables:
+                handoff = min(self.syll_index, len(word.syllables) - 1)
+                word.syllables[handoff].stressed = True
+            return
 
-        # Replace original syllable
-        word.syllables[self.syll_index] = subword.syllables[0]
+        # --- NEW: splice in all resulting syllables (handles 1 or many)
+        word.syllables = (
+            word.syllables[:self.syll_index]
+            + subword.syllables
+            + word.syllables[self.syll_index + 1:]
+        )
 
 class StressRule(PhonoRule):
     def __init__(self, raw_data):
@@ -791,8 +982,16 @@ class EvolutionEngine:
         self.rules = []
         self.log_steps = log_steps
         self.rule_cache = {}  # Cache to avoid rebuilding rules
+        self.cluster_policies: list[ClusterPolicyRule] = []
+
 
     def apply_rule(self, rule: Rule):
+        print(f"\n[DEBUG] Applying rule: {rule.name} ({rule.type})")
+
+        # make cluster policies visible to any PhonoRule subclass
+        if isinstance(rule, PhonoRule):
+            rule.cluster_policies = self.cluster_policies
+
         for word in self.words:
             before = word.to_string()
             rule.apply(word)
@@ -800,11 +999,17 @@ class EvolutionEngine:
 
             if self.log_steps and before != after:
                 word.log_step(rule.name, before, after)
+            
+            print(f"[DEBUG]   Result for '{before}' -> '{after}'")
+
 
     def evolve(self, rule_data_list: list):
+        self.cluster_policies.clear()
         for rule_data in rule_data_list:
             rule = self.build_rule(rule_data)
             self.apply_rule(rule)
+
+
 
     def build_rule(self, rule_data: list) -> Rule:
         # Use unmodified rule_data as the cache key
@@ -819,6 +1024,9 @@ class EvolutionEngine:
 
         if rule_type == "ass":
             rule = AssimilationRule(expanded_data)
+        elif rule_type == "clp":
+            rule = ClusterPolicyRule(expanded_data)
+            self.cluster_policies.append(rule)
         elif rule_type == "con":
             rule = ContextualRule(expanded_data)
         elif rule_type == "del":

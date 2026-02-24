@@ -180,10 +180,24 @@ p, li { white-space: pre-wrap; }
          </property>
         </widget>
        </item>
+       <item>
+        <widget class="QPushButton" name="pushButton_fromIPA">
+         <property name="text">
+          <string>Ortho from IPA</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="pushButton_create_ortho">
+         <property name="text">
+          <string>Create Ortho Preset</string>
+         </property>
+        </widget>
+       </item>
       </layout>
      </item>
      <item>
-      <widget class="QTextEdit" name="textEdit"/>
+      <widget class="QTextEdit" name="textEdit_ortho"/>
      </item>
     </layout>
    </widget>

@@ -60,7 +60,9 @@ class RuleManager():
         return len(self._rules_list)
 
 class UI_Main(QMainWindow):
-    def __init__(self):
+    presetSaved = pyqtSignal(str)
+
+    def __init__(self, start_preset: str | None = None):
         super(UI_Main, self).__init__()
         uic.loadUi(UI_PATH("evo.ui"), self)
 
@@ -90,7 +92,7 @@ class UI_Main(QMainWindow):
 	    """
 
         # Preset widget functions
-        self.populate_combo_box()
+        self.populate_combo_box(restore_to=start_preset)
         self.button_save.clicked.connect(self.savePreset)
         self.button_save_as.clicked.connect(self.saveAs)
         self.button_manage.clicked.connect(self.manage_presets)
@@ -98,7 +100,7 @@ class UI_Main(QMainWindow):
         self.combo_select.currentIndexChanged.connect(self.load_preset)
 
         self.button_phono.clicked.connect(self.addRule)
-        self.list_widget.itemDoubleClicked.connect(self.edit_rule) 
+        self.list_widget.itemDoubleClicked.connect(self.edit_rule)
         self.list_widget.setDragDropMode(QListWidget.InternalMove)
 
         self.button_delete.clicked.connect(self.delete_rule)
@@ -366,6 +368,7 @@ class UI_Main(QMainWindow):
 
             QMessageBox.information(self, "Success", f"Rules saved to table '{self.preset_name}'.")
 
+            self.presetSaved.emit(self.preset_name)
             self.populate_combo_box(restore_to=self.preset_name)
             self.load_preset()         
 
@@ -414,7 +417,33 @@ class UI_Main(QMainWindow):
             self.dialog_assimilate.lineEdit_replace.setText(" ".join(rule[5]))
             self.dialog_assimilate.checkBox_prog.setChecked(not rule[6])
             self.dialog_assimilate.checkBox_skip.setChecked(rule[7])
+            self.dialog_assimilate.checkBox_solo_gem.setChecked(rule[8])
             self.dialog_assimilate.exec_()
+
+        elif rule_type == "clp":
+            dlg = UI_ClusterPolicy()
+            dlg.ruleSent.connect(self.update_rule)
+
+            dlg.lineEdit_name.setText(rule[0])
+            dlg.textEdit_notes.setText(rule[2])
+
+            # position/scope
+            idx = dlg.combo_position.findText(str(rule[3]), Qt.MatchFixedString)
+            if idx >= 0: dlg.combo_position.setCurrentIndex(idx)
+            idx = dlg.combo_scope.findText(str(rule[4]), Qt.MatchFixedString)
+            if idx >= 0: dlg.combo_scope.setCurrentIndex(idx)
+
+            # clusters back into the boxes
+            allow_str = ", ".join(" ".join(c) for c in (rule[5] or []))
+            ban_str   = ", ".join(" ".join(c) for c in (rule[6] or []))
+
+            dlg.line_allow.setText(allow_str)
+            dlg.line_ban.setText(ban_str)
+
+            # max_check (default 3 if absent)
+            dlg.spin_max_check.setValue(int(rule[7]) if len(rule) > 7 else 3)
+
+            dlg.exec_()
 
         elif rule_type == "con":
             self.dialog_context = UI_Context()
@@ -463,6 +492,7 @@ class UI_Main(QMainWindow):
             self.dialog_assimilate.checkBox_disc.setChecked(True)
             self.dialog_assimilate.spinBox_max.setValue(rule[8])
             self.dialog_assimilate.spinBox_max.setEnabled(True)
+            self.dialog_assimilate.checkBox_solo_gem.setChecked(rule[9])
             self.dialog_assimilate.exec_()
 
         elif rule_type == "epen":
@@ -502,12 +532,16 @@ class UI_Main(QMainWindow):
             self.dialog_syll.textEdit_notes.setText(rule[2])
             self.dialog_syll.lineEdit_old_list.setText(" ".join(rule[3]))
             self.dialog_syll.lineEdit_new_list.setText(" ".join(rule[4]))
-            self.dialog_syll.comboBox.setCurrentText(str(rule[5]))
-
             self.dialog_syll.lineEdit_pre_trigs.setText(" ".join(rule[6]))
             self.dialog_syll.lineEdit_post_trigs.setText(" ".join(rule[7]))
             self.dialog_syll.checkBox_skip.setChecked(bool(rule[8]))
             self.dialog_syll.checkBox_solo.setChecked(bool(rule[9]))
+
+            # Set Combobox
+            want = str(rule[5]).strip().lower()
+            idx = self.dialog_syll.comboBox.findData(want)
+            if idx != -1:
+                self.dialog_syll.comboBox.setCurrentIndex(idx)
             
             self.dialog_syll.exec_()
 
@@ -535,10 +569,8 @@ class UI_Main(QMainWindow):
 
         for row in rows:
             item = self.list_widget.takeItem(row)
-            rule_name = item.text().strip()
-            self.rules.remove(rule_name)
-
-
+        key = item.data(Qt.UserRole)  # not item.text()
+        self.rules.remove(key)
 
     def handle_rule_main(self, rule):
         print("Main received", rule)
@@ -618,9 +650,12 @@ class UI_Assimilate(UI_Dialog):
         self.lineEdit_trigger = self.findChild(QLineEdit, "lineEdit_trigger")
         self.lineEdit_replace = self.findChild(QLineEdit, "lineEdit_replace")
         self.checkBox_disc = self.findChild(QCheckBox, "checkBox_disc")
+        self.checkBox_solo_gem = self.findChild(QCheckBox, "checkBox_solo_gem")
         self.spinBox_max = self.findChild(QSpinBox, "spinBox_max")
         self.checkBox_prog = self.findChild(QCheckBox, "checkBox_prog")
         self.checkBox_skip = self.findChild(QCheckBox, "checkBox_skip")
+        self.checkBox_solo_gem = self.findChild(QCheckBox, "checkBox_solo_gem")
+
         self.label_max = self.findChild(QLabel, "label_max")
 
         # Add functionality
@@ -650,19 +685,65 @@ class UI_Assimilate(UI_Dialog):
         prog = self.checkBox_prog.isChecked()
         regressive = not prog 
         stress_skip = self.checkBox_skip.isChecked()
+        require_identical = bool(self.checkBox_solo_gem.isChecked())
 
 
         if self.checkBox_disc.isChecked():
             max_distance = self.spinBox_max.value()
             # Create discontiguous assimilation rule
             rule = [name, "disc", notes, target_list, trigger_list, replace_list, 
-                    regressive, stress_skip, max_distance]
+                    regressive, stress_skip, max_distance, require_identical]
         else:
             # Create normal assimilation rule
             rule = [name, "ass", notes, target_list, trigger_list, replace_list, 
-                    regressive, stress_skip]
+                    regressive, stress_skip, require_identical]
 
         self.send_rule(rule)
+
+class UI_ClusterPolicy(UI_Dialog):
+    def __init__(self):
+        super(UI_ClusterPolicy, self).__init__()
+        uic.loadUi(UI_PATH("dialog_cluster_policy.ui"), self)
+
+        self.define_widgets()
+        self.combo_position   = self.findChild(QComboBox, "combo_position")
+        self.combo_scope      = self.findChild(QComboBox, "combo_scope")
+        self.spin_max_check   = self.findChild(QSpinBox, "spin_max_check")
+        self.line_allow       = self.findChild(QLineEdit, "lineEdit_allow")
+        self.line_ban         = self.findChild(QLineEdit, "lineEdit_ban")
+
+        self.button_save.clicked.connect(self.make_rule)
+        self.button_close.clicked.connect(self.close)
+
+    def _parse_block(self, le) -> list:
+        # le is a QLineEdit
+        if le is None:
+            return []
+        raw = (le.text() or "").strip()
+        if not raw:
+            return []
+        # split clusters on commas or semicolons (you can use only commas if you prefer)
+        import re
+        segments = re.split(r"[;,]+", raw)
+        out = []
+        for seg in segments:
+            seg = seg.strip()
+            if seg:
+                out.append(seg.split())  # "st r" -> ["st","r"]
+        return out
+
+    def child_func(self, name: str, notes: str):
+        position  = (self.combo_position.currentData() or self.combo_position.currentText()).lower()
+        scope     = (self.combo_scope.currentData() or self.combo_scope.currentText()).lower()
+        max_check = int(self.spin_max_check.value())
+        allow     = self._parse_block(self.line_allow)
+        ban       = self._parse_block(self.line_ban)
+
+        # Payload shape (keeps parity with your other rules):
+        # [name, "clp", notes, position, scope, allow, ban, max_check]
+        rule = [name, "clp", notes, position, scope, allow, ban, max_check]
+        self.send_rule(rule)
+
 
 class UI_Context(UI_Dialog):
     def __init__(self):
@@ -861,6 +942,11 @@ class UI_Syllabic(UI_Dialog):
         # Add functionality
         self.pushButton_save.clicked.connect(self.make_rule)
 
+        # Set combobox values
+        self.comboBox.clear()
+        self.comboBox.addItem("First", userData="first")
+        self.comboBox.addItem("Last",  userData="last")
+
     def child_func(self, name, notes):
         if not self.lineEdit_new_list.text():
             print("No find values given. Add to continue.")
@@ -868,7 +954,7 @@ class UI_Syllabic(UI_Dialog):
 
         old_list   = self.lineEdit_old_list.text().split()
         new_list   = self.parse_lineedit(self.lineEdit_new_list.text())
-        position   = self.comboBox.currentText().lower()
+        position = (self.comboBox.currentData() or self.comboBox.currentText()).lower()
         pre_list   = self.parse_lineedit(self.lineEdit_pre_trigs.text())
         post_list  = self.parse_lineedit(self.lineEdit_post_trigs.text())
         skip       = self.checkBox_skip.isChecked()
@@ -887,6 +973,7 @@ class UI_Phono(QDialog):
 
         # Define widgets
         self.ass = self.findChild(QRadioButton, "radioButton_ass")
+        self.clp = self.findChild(QRadioButton, "radioButton_clp")  # new
         self.con = self.findChild(QRadioButton, "radioButton_con")
         self.dele = self.findChild(QRadioButton, "radioButton_del")
         self.epen = self.findChild(QRadioButton, "radioButton_epen")
@@ -906,6 +993,11 @@ class UI_Phono(QDialog):
             self.dialog_assimilate = UI_Assimilate()
             self.dialog_assimilate.ruleSent.connect(self.handle_rule_phono)
             self.dialog_assimilate.exec_()
+
+        elif self.clp.isChecked():
+            self.dialog_clp = UI_ClusterPolicy()
+            self.dialog_clp.ruleSent.connect(self.handle_rule_phono)
+            self.dialog_clp.exec_()
 
         elif self.con.isChecked():
             print("Contextual selected")

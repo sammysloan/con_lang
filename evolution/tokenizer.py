@@ -31,11 +31,12 @@ def build_default_ipa_units() -> List[str]:
                 "SibilantFricatives", "NonSibilantFricatives", "Approximants", "Taps", "Trills",
                 "LateralAffricates", "LateralFricatives", "LateralApproximants", "LateralTaps",
                 "Glottal", "Uvular", "Velar", "Palatal", "Retroflex", "PostAlveolar", "Alveolar", "Dental",
-                "Labiodental", "Bilabial"]:
+                "Labiodental", "Bilabial", "LabioVelars"]:
         units.update(IPA_GROUPS.get(key, []))
 
     # Always include stress/length markers as standalone
     units.update({"ˈ", "ˌ", "ː", "̃", "."})
+    units.update({"kʷ", "ɡʷ", "pʰ", "kʰ", "ks", "dz"}) 
 
     return sorted(units, key=len, reverse=True)
 

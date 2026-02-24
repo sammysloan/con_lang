@@ -1,0 +1,349 @@
+IPA Keyword Groups — Overview
+
+Nasals
+  What it holds: Nasal stops (airflow through the nose), across places of articulation.
+  Count: 15
+  Examples: m̥, m, ɱ̊, ɱ, n̼, n̥, n, ɳ̊ ...
+
+
+Plosives
+  What it holds: Oral stops (complete closure, burst release), voiced and voiceless.
+  Count: 20
+  Examples: p, b, p̪, b̪, t̼, d̼, t̪, d̪ ...
+
+
+SibilantAffricates
+  What it holds: Affricates with sibilant frication (ts, tʃ, tɕ, etc.).
+  Count: 10
+  Examples: t̪s̪, d̪z̪, ts, dz, t̠ʃ, d̠ʒ, tʂ, dʐ ...
+
+
+NonSibilantAffricates
+  What it holds: Affricates with non‑sibilant frication (pf, tθ, cç, etc.).
+  Count: 19
+  Examples: pɸ, bβ, p̪f, b̪v, t̪θ, d̪ð, tɹ̝̊, dɹ̝ ...
+
+
+SibilantFricatives
+  What it holds: Fricatives with grooved, high‑amplitude hiss (s, ʃ, ɕ, etc.).
+  Count: 8
+  Examples: s, z, ʃ, ʒ, ʂ, ʐ, ɕ, ʑ
+
+
+NonSibilantFricatives
+  What it holds: Other fricatives (ɸ β f v θ ð x ɣ χ ʁ ħ ʕ h ɦ, etc.).
+  Count: 24
+  Examples: ɸ, β, f, v, θ̼, ð̼, θ, ð ...
+
+
+Approximants
+  What it holds: Approximant consonants (ɹ, j, ʋ, ɰ, etc.).
+  Count: 9
+  Examples: β̞, ʋ, ð̞, ɹ, ɹ̠, ɻ, j, ɰ ...
+
+
+Taps
+  What it holds: Very brief single‑contact rhotics (ɾ, ɽ, etc.).
+  Count: 9
+  Examples: ⱱ̟, ⱱ, ɾ̼, ɾ̥, ɾ, ɽ̊, ɽ, ɢ̆ ...
+
+
+Trills
+  What it holds: Vibrant rhotics and related trills (r, ʀ, ʙ, ʜ/ʢ).
+  Count: 11
+  Examples: ʙ̥, ʙ, r̥, r, r̠, ɽ̊r̥, ɽr, ʀ̥ ...
+
+
+LateralAffricates
+  What it holds: Affricates with lateral release (tɬ, dɮ, etc.).
+  Count: 8
+  Examples: tɬ, dɮ, tꞎ, d𝼅, c𝼆, ɟʎ̝, k𝼄, ɡʟ̝
+
+
+LateralFricatives
+  What it holds: Lateral fricatives (ɬ, ɮ, etc.).
+  Count: 8
+  Examples: ɬ, ɮ, ꞎ, 𝼅, 𝼆, ʎ̝, 𝼄, ʟ̝
+
+
+LateralApproximants
+  What it holds: Lateral approximants (l series, ʎ, ʟ…).
+  Count: 7
+  Examples: l̪, l, l̠, ɭ, ʎ, ʟ, ʟ̠
+
+
+LateralTaps
+  What it holds: Taps with lateral articulation (ɺ, ʎ̆, ʟ̆…).
+  Count: 6
+  Examples: ɺ̥, ɺ, 𝼈̊, 𝼈, ʎ̆, ʟ̆
+
+
+Bilabial
+  What it holds: Bilabial consonants (both lips).
+  Count: 12
+  Examples: m̥, m, p, b, pɸ, bβ, ɸ, β ...
+
+
+Labiodental
+  What it holds: Labiodental consonants (lip + teeth).
+  Count: 8
+  Examples: ɱ̊, ɱ, p̪, b̪, f, v, ʋ, ⱱ
+
+
+Linguolabial
+  What it holds: Tongue‑to‑upper‑lip articulations.
+  Count: 6
+  Examples: n̼, t̼, d̼, θ̼, ð̼, ɾ̼
+
+
+Dental
+  What it holds: Dental consonants (tongue to teeth).
+  Count: 10
+  Examples: t̪, d̪, t̪s̪, d̪z̪, t̪θ, d̪ð, θ, ð ...
+
+
+Alveolar
+  What it holds: Alveolar articulations (tongue to alveolar ridge).
+  Count: 24
+  Examples: n̥, n, t, d, ts, dz, tɹ̝̊, dɹ̝ ...
+
+
+PostAlveolar
+  What it holds: Postalveolar consonants.
+  Count: 11
+  Examples: t̠ʃ, d̠ʒ, t̠ɹ̠̊˔, d̠ɹ̠˔, ʃ, ʒ, ɹ̠̊˔, ɹ̠˔ ...
+
+
+Retroflex
+  What it holds: Retroflex place of articulation.
+  Count: 22
+  Examples: ɳ̊, ɳ, ʈ, ɖ, tʂ, dʐ, ʂ, ʐ ...
+
+
+Palatal
+  What it holds: Palatal place of articulation.
+  Count: 18
+  Examples: ɲ̊, ɲ, c, ɟ, tɕ, dʑ, cç, ɟʝ ...
+
+
+Velar
+  What it holds: Velar place of articulation.
+  Count: 15
+  Examples: ŋ̊, ŋ, k, ɡ, kx, ɡɣ, x, ɣ ...
+
+
+Uvular
+  What it holds: Uvular place of articulation.
+  Count: 13
+  Examples: ɴ̥, ɴ, q, ɢ, qχ, ɢʁ, χ, ʁ ...
+
+
+Epiglottal
+  What it holds: Epiglottal segments (including epiglottal fricatives/stops).
+  Count: 8
+  Examples: ʡ, ʡʜ, ʡʢ, ħ, ʕ, ʡ̆, ʜ, ʢ
+
+
+Glottal
+  What it holds: Glottal segments (ʔ, h, ɦ…).
+  Count: 5
+  Examples: ʔ, ʔh, h, ɦ, ʔ̞
+
+
+Obstruents
+  What it holds: Stops, fricatives, and affricates (noise‑producing).
+  Count: 81
+  Examples: p, b, p̪, b̪, t̼, d̼, t̪, d̪ ...
+
+
+VoicedObstruents
+  What it holds: Subset of obstruents produced with vocal‑fold vibration.
+  Count: 39
+  Examples: b, b̪, d̼, d̪, d, ɖ, ɟ, ɡ ...
+
+
+VoicelessObstruents
+  What it holds: Subset of obstruents without vocal‑fold vibration.
+  Count: 42
+  Examples: p, p̪, t̼, t̪, t, ʈ, c, k ...
+
+
+Sonorants
+  What it holds: Nasals, approximants, liquids, taps, trills (generally voiced).
+  Count: 73
+  Examples: m̥, m, ɱ̊, ɱ, n̼, n̥, n, ɳ̊ ...
+
+
+VoicedSonorants
+  What it holds: Sonorants with voicing explicitly marked.
+  Count: 50
+  Examples: m, ɱ, n̼, n, ɳ, ɲ, ŋ, ɴ ...
+
+
+VoicelessSonorants
+  What it holds: Sonorants produced without voicing.
+  Count: 24
+  Examples: m̥, ɱ̊, n̥, ɳ̊, ɲ̊, ŋ̊, ɴ̥, ɾ̥ ...
+
+
+CloseVowels
+  What it holds: High vowels and their long/nasal variants.
+  Count: 30
+  Examples: i, y, ɨ, ʉ, ɯ, u, iː, yː ...
+
+
+NearCloseVowels
+  What it holds: Near‑high vowels and variants.
+  Count: 15
+  Examples: ɪ, ʏ, ʊ, ɪː, ʏː, ʊː, ɪ̃, ʏ̃ ...
+
+
+CloseMidVowels
+  What it holds: Close‑mid vowels and variants.
+  Count: 30
+  Examples: e, ø, ɘ, ɵ, ɤ, o, eː, øː ...
+
+
+MidVowels
+  What it holds: Mid central vowel /ə/ set and variants.
+  Count: 5
+  Examples: ə, əː, ə̃, ə̃ː, ə̃ːː
+
+
+OpenMidVowels
+  What it holds: Open‑mid vowels and variants.
+  Count: 30
+  Examples: ɛ, œ, ɜ, ɞ, ʌ, ɔ, ɛː, œː ...
+
+
+NearOpenVowels
+  What it holds: Near‑open vowels and variants.
+  Count: 10
+  Examples: æ, ɐ, æː, ɐː, æ̃, ɐ̃, æ̃ː, ɐ̃ː ...
+
+
+OpenVowels
+  What it holds: Open/low vowels and variants.
+  Count: 25
+  Examples: a, ɶ, ä, ɑ, ɒ, aː, ɶː, äː ...
+
+
+FrontVowels
+  What it holds: Front vowel inventory (short/long/nasal).
+  Count: 55
+  Examples: i, y, ɪ, ʏ, e, ø, ɛ, œ ...
+
+
+CentralVowels
+  What it holds: Central vowel inventory (short/long/nasal).
+  Count: 50
+  Examples: ɨ, ʉ, ɘ, ɵ, ə, ɜ, ɞ, ʌ ...
+
+
+BackVowels
+  What it holds: Back vowel inventory (short/long/nasal).
+  Count: 40
+  Examples: ɯ, u, ʊ, ɤ, o, ɔ, ɑ, ɒ ...
+
+
+RoundedVowels
+  What it holds: All rounded vowels across heights/lengths.
+  Count: 55
+  Examples: u, ʊ, o, ɔ, y, ʏ, ø, œ ...
+
+
+UnroundedVowels
+  What it holds: All unrounded vowels across heights/lengths.
+  Count: 55
+  Examples: i, ɪ, e, ɛ, æ, a, ɨ, ɐ ...
+
+
+ShortVowels
+  What it holds: Monophthongs without length marks (baseline).
+  Count: 29
+  Examples: i, y, ɪ, ʏ, e, ø, ɛ, œ ...
+
+
+LongVowels
+  What it holds: Monophthongs marked long with ː.
+  Count: 29
+  Examples: iː, yː, ɪː, ʏː, eː, øː, ɛː, œː ...
+
+
+OverlongVowels
+  What it holds: Monophthongs marked overlong with ːː.
+  Count: 29
+  Examples: iːː, yːː, ɪːː, ʏːː, eːː, øːː, ɛːː, œːː ...
+
+
+Diphthongs
+  What it holds: Gliding vowel pairs (ai, au, iə, etc.).
+  Count: 36
+  Examples: ai, au, ei, oi, ou, ui, eu, iu ...
+
+
+NasalDiphthongs
+  What it holds: Diphthongs with nasalization on both elements (e.g., ãĩ).
+  Count: 36
+  Examples: ãĩ, ãũ, ẽĩ, õĩ, õũ, ũĩ, ẽũ, ĩũ ...
+
+
+Glides
+  What it holds: Semivowels (j, w, ɥ, ɰ).
+  Count: 4
+  Examples: j, w, ɥ, ɰ
+
+
+SyllabicConsonants
+  What it holds: Consonants carrying syllabic nuclei (r̩, l̩, m̩, n̩).
+  Count: 4
+  Examples: r̩, l̩, m̩, n̩
+
+
+Consonants
+  What it holds: Union of all defined consonant groups (deduplicated).
+  Count: 154
+  Examples: m̥, m, ɱ̊, ɱ, n̼, n̥, n, ɳ̊ ...
+
+
+Fricatives
+  What it holds: Union of sibilant and non‑sibilant fricatives.
+  Count: 32
+  Examples: ɸ, β, f, v, θ̼, ð̼, θ, ð ...
+
+
+NasalVowels
+  What it holds: Generic nasal monophthongs (if populated).
+  Count: 87
+  Examples: ĩ, ɪ̃, ẽ, ɛ̃, æ̃, ã, ɨ̃, ɐ̃ ...
+
+
+Nuclei
+  What it holds: All legal syllable nuclei (vowels, diphthongs, syllabics).
+  Count: 221
+  Examples: i, y, ɨ, ʉ, ɯ, u, iː, yː ...
+
+
+Vocoids
+  What it holds: Nuclei plus glides (vowel‑like segments).
+  Count: 225
+  Examples: i, y, ɨ, ʉ, ɯ, u, iː, yː ...
+
+
+NasalShortVowels
+  What it holds: Custom token group.
+  Count: 29
+  Examples: ĩ, ỹ, ɪ̃, ʏ̃, ẽ, ø̃, ɛ̃, œ̃ ...
+
+
+NasalLongVowels
+  What it holds: Custom token group.
+  Count: 29
+  Examples: ĩː, ỹː, ɪ̃ː, ʏ̃ː, ẽː, ø̃ː, ɛ̃ː, œ̃ː ...
+
+
+NasalOverlongVowels
+  What it holds: Custom token group.
+  Count: 29
+  Examples: ĩːː, ỹːː, ɪ̃ːː, ʏ̃ːː, ẽːː, ø̃ːː, ɛ̃ːː, œ̃ːː ...
+
