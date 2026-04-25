@@ -1,4 +1,5 @@
 from core.phonologizer import Phonologizer
+from evolution import evolver as _evo
 from evolution.tokenizer import Tokenizer, DEFAULT_IPA_UNITS
 
 class PhonoGermanic(Phonologizer):
@@ -10,6 +11,15 @@ class PhonoGermanic(Phonologizer):
             units=DEFAULT_IPA_UNITS,
             strict_compounds=False
         )
+
+        # Register Germanic diphthongs (with non-syllabic diacritic) that aren't
+        # in DEFAULT_IPA_UNITS, so the tokenizer doesn't split e.g. ɑi̯ → [ɑi, ̯]
+        self.tokenizer.add_units([
+            'ɑi̯', 'ɑu̯', 'ei̯', 'eu̯', 'iu̯',
+            'ɔːi̯', 'ɔːu̯', 'eːi̯', 'eːu̯',
+        ])
+
+        _evo.set_weight_fn(self.is_syllable_heavy)
 
         self.ipa_map = {
             # Short vowels
@@ -59,22 +69,22 @@ class PhonoGermanic(Phonologizer):
             'ɑ̃', 'ɔ̃', 'ɑ̃ː', 'ɔ̃ː', 'ɑ̃ːː', 'ɔ̃ːː',
 
             # Long vowels
-            'ɑː', 'eː', 'iː', 'ɔː', 'uː', 'ɛː',
+            'ɑː', 'eː', 'iː', 'ɔː', 'uː',
 
             # Short vowels
             'ɑ', 'ɛ', 'i', 'ɔ', 'u',
 
             # Diphthongs
-            'ɑi̯', 'ɑu̯', 'eu̯', 'iu̯',
+            'ɑi̯', 'ɑu̯', 'ei̯', 'eu̯', 'iu̯',
             'ɔːi̯', 'ɔːu̯',
-            'ɛːi̯', 'ɛːu̯',
+            'eːi̯', 'eːu̯',
 
             # Labio-velars
             'kʷ', 'ɡʷ', 'xʷ',
 
             # Consonants
-            'b', 'd', 'f', 'ɡ', 'ɣ', 'β',
-            'h', 'k', 'l', 'm', 'n', 'ŋ', 'ŋʷ',
+            'b', 'd', 'ɸ', 'f', 'ɡ', 'ɣ', 'ɣʷ', 'β',
+            'h', 'x', 'k', 'l', 'm', 'n', 'ŋ', 'ŋʷ',
             'p', 'r', 's', 't', 'z', 'θ', 'ð', 'ʍ', 'j', 'w',
 
             # Stress marker
@@ -206,7 +216,7 @@ class PhonoGermanic(Phonologizer):
                 next2 = unpacked[i + 2] if i + 2 < len(unpacked) else ""
                 if next_ == 'w':
                     new_phonemes.append('ɣʷ')
-                    i += 1
+                    i += 2  # consume both g and w
                     continue
                 else:
                     new_phonemes.append('ɣ')

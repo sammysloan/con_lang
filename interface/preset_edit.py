@@ -35,14 +35,14 @@ class RuleManager():
         self._rules_dict.clear()
 
     def add(self, rule):
-        key = rule[0]
+        key = rule["name"]
         self._rules_list.append(rule)
         self._rules_dict[key] = rule
 
     def remove(self, key):
         rule = self._rules_dict.pop(key, None)
         if rule:
-            self._rules_list = [r for r in self._rules_list if r[0] != key]
+            self._rules_list = [r for r in self._rules_list if r["name"] != key]
 
     def get(self, key):
         return self._rules_dict.get(key)
@@ -115,8 +115,7 @@ class UI_Main(QMainWindow):
         try:
             with sqlite3.connect(DB_PATH) as conn:
                 cursor = conn.cursor()
-                cursor.execute("""SELECT name FROM sqlite_master
-                    WHERE type='table' AND name != 'sqlite_sequence'""")
+                cursor.execute("SELECT DISTINCT preset_name FROM presets ORDER BY preset_name COLLATE NOCASE")
                 presets = [row[0] for row in cursor.fetchall()]
                 self.combo_select.addItems(presets)
 
@@ -174,9 +173,8 @@ class UI_Main(QMainWindow):
         try:
             with sqlite3.connect(DB_PATH) as conn:
                 cursor = conn.cursor()
-                cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name != 'sqlite_sequence'")
-                tables = cursor.fetchall()
-                for name, in tables:
+                cursor.execute("SELECT DISTINCT preset_name FROM presets ORDER BY preset_name COLLATE NOCASE")
+                for (name,) in cursor.fetchall():
                     item = QListWidgetItem(name)
                     list_widget.addItem(item)
         except sqlite3.Error as e:
@@ -203,8 +201,8 @@ class UI_Main(QMainWindow):
                 try:
                     with sqlite3.connect(DB_PATH) as conn:
                         cursor = conn.cursor()
-                        for table_name in table_names: 
-                            cursor.execute(f"DROP TABLE IF EXISTS {table_name}")
+                        for table_name in table_names:
+                            cursor.execute("DELETE FROM presets WHERE preset_name = ?", (table_name,))
                         conn.commit()
 
                     for item in selected_items:
@@ -239,7 +237,7 @@ class UI_Main(QMainWindow):
             try:
                 with sqlite3.connect(DB_PATH) as conn:
                     cursor = conn.cursor()
-                    cursor.execute(f"ALTER TABLE {old_name} RENAME TO {new_name}")
+                    cursor.execute("UPDATE presets SET preset_name = ? WHERE preset_name = ?", (new_name, old_name))
                     conn.commit()
 
                 # Update the item text
@@ -293,18 +291,18 @@ class UI_Main(QMainWindow):
         try:
             with sqlite3.connect(DB_PATH) as conn:
                 cursor = conn.cursor()
-                cursor.execute(f"SELECT rule FROM {preset}")
+                cursor.execute("SELECT rule FROM presets WHERE preset_name = ? ORDER BY rule_order", (preset,))
                 rows = cursor.fetchall()
 
             for row in rows:
                 try:
                     rule = json.loads(row[0])
-                    if isinstance(rule, list):
+                    if isinstance(rule, (list, dict)):
                         self.rules.add(rule)
 
-                        label = f"{rule[0]} - {rule[2]}" if len(rule) > 2 else rule[0]
+                        label = f"{rule['name']} - {rule['notes']}"
                         item = QListWidgetItem(label)
-                        item.setData(Qt.UserRole, rule[0])
+                        item.setData(Qt.UserRole, rule["name"])
                         self.list_widget.addItem(item)
                 except json.JSONDecodeError as e:
                     print(f"Could not decode rule: {row[0]} -> {e}")
@@ -340,22 +338,15 @@ class UI_Main(QMainWindow):
         try:
             with sqlite3.connect(DB_PATH) as conn:
                 cursor = conn.cursor()
-                cursor.execute(f"DROP TABLE IF EXISTS {self.preset_name}")
-                cursor.execute(f"""
-                    CREATE TABLE {self.preset_name} (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        rule TEXT
-                    )
-                """)
+                cursor.execute("DELETE FROM presets WHERE preset_name = ?", (self.preset_name,))
 
-                for key in ordered_keys:
+                for order, key in enumerate(ordered_keys):
                     if self.rules.has_key(key):
                         full_rule = self.rules.get(key)
                         if full_rule is not None:
-                            rule_string = json.dumps(full_rule)
                             cursor.execute(
-                                f"INSERT INTO {self.preset_name} (rule) VALUES (?)",
-                                (rule_string,)
+                                "INSERT INTO presets (preset_name, rule_order, rule) VALUES (?, ?, ?)",
+                                (self.preset_name, order, json.dumps(full_rule))
                             )
                         else:
                             QMessageBox.warning(self, "Missing Rule", f"Key '{key}' not found in rules.")
@@ -404,44 +395,37 @@ class UI_Main(QMainWindow):
             QMessageBox.warning(self, "Error", f"Rule '{selected_key}' not found.")
             return
 
-        rule_type = rule[1]
+        rule_type = rule["type"]
 
         if rule_type == "ass":
             self.dialog_assimilate = UI_Assimilate()
             self.dialog_assimilate.ruleSent.connect(self.update_rule)
 
-            self.dialog_assimilate.lineEdit_name.setText(rule[0])
-            self.dialog_assimilate.textEdit_notes.setText(rule[2])
-            self.dialog_assimilate.lineEdit_target.setText(" ".join(rule[3]))
-            self.dialog_assimilate.lineEdit_trigger.setText(" ".join(rule[4]))
-            self.dialog_assimilate.lineEdit_replace.setText(" ".join(rule[5]))
-            self.dialog_assimilate.checkBox_prog.setChecked(not rule[6])
-            self.dialog_assimilate.checkBox_skip.setChecked(rule[7])
-            self.dialog_assimilate.checkBox_solo_gem.setChecked(rule[8])
+            self.dialog_assimilate.lineEdit_name.setText(rule["name"])
+            self.dialog_assimilate.textEdit_notes.setText(rule["notes"])
+            self.dialog_assimilate.lineEdit_target.setText(" ".join(rule["targets"]))
+            self.dialog_assimilate.lineEdit_trigger.setText(" ".join(rule["triggers"]))
+            self.dialog_assimilate.lineEdit_replace.setText(" ".join(rule["replace"]))
+            self.dialog_assimilate.checkBox_prog.setChecked(not rule["regressive"])
+            self.dialog_assimilate.checkBox_skip.setChecked(rule.get("skip_stress", False))
+            self.dialog_assimilate.checkBox_solo_gem.setChecked(rule.get("require_identical", False))
             self.dialog_assimilate.exec_()
 
         elif rule_type == "clp":
             dlg = UI_ClusterPolicy()
             dlg.ruleSent.connect(self.update_rule)
 
-            dlg.lineEdit_name.setText(rule[0])
-            dlg.textEdit_notes.setText(rule[2])
+            dlg.lineEdit_name.setText(rule["name"])
+            dlg.textEdit_notes.setText(rule["notes"])
 
-            # position/scope
-            idx = dlg.combo_position.findText(str(rule[3]), Qt.MatchFixedString)
+            idx = dlg.combo_position.findText(rule["position"], Qt.MatchFixedString)
             if idx >= 0: dlg.combo_position.setCurrentIndex(idx)
-            idx = dlg.combo_scope.findText(str(rule[4]), Qt.MatchFixedString)
+            idx = dlg.combo_scope.findText(rule["scope"], Qt.MatchFixedString)
             if idx >= 0: dlg.combo_scope.setCurrentIndex(idx)
 
-            # clusters back into the boxes
-            allow_str = ", ".join(" ".join(c) for c in (rule[5] or []))
-            ban_str   = ", ".join(" ".join(c) for c in (rule[6] or []))
-
-            dlg.line_allow.setText(allow_str)
-            dlg.line_ban.setText(ban_str)
-
-            # max_check (default 3 if absent)
-            dlg.spin_max_check.setValue(int(rule[7]) if len(rule) > 7 else 3)
+            dlg.line_allow.setText(", ".join(" ".join(c) for c in (rule.get("allow") or [])))
+            dlg.line_ban.setText(", ".join(" ".join(c) for c in (rule.get("ban") or [])))
+            dlg.spin_max_check.setValue(int(rule.get("max_check", 3)))
 
             dlg.exec_()
 
@@ -449,78 +433,77 @@ class UI_Main(QMainWindow):
             self.dialog_context = UI_Context()
             self.dialog_context.ruleSent.connect(self.update_rule)
 
-            self.dialog_context.lineEdit_name.setText(rule[0])
-            self.dialog_context.textEdit_notes.setText(rule[2])
-            self.dialog_context.lineEdit_old_list.setText(" ".join(rule[3]))
-            self.dialog_context.lineEdit_new_list.setText(" ".join(rule[4]))
-            self.dialog_context.lineEdit_pre_trig.setText(" ".join(rule[5]))
-            self.dialog_context.lineEdit_post_trig.setText(" ".join(rule[6]))
-            self.dialog_context.lineEdit_pre_ex.setText(" ".join(rule[7]))
-            self.dialog_context.lineEdit_post_ex.setText(" ".join(rule[8]))
-            self.dialog_context.checkBox_skip.setChecked(rule[9])
-            self.dialog_context.checkBox_solo.setChecked(rule[10])
+            self.dialog_context.lineEdit_name.setText(rule["name"])
+            self.dialog_context.textEdit_notes.setText(rule["notes"])
+            self.dialog_context.lineEdit_old_list.setText(" ".join(rule["old_list"]))
+            self.dialog_context.lineEdit_new_list.setText(" ".join(rule["new_list"]))
+            self.dialog_context.lineEdit_pre_trig.setText(" ".join(rule.get("pre_trig", [])))
+            self.dialog_context.lineEdit_post_trig.setText(" ".join(rule.get("post_trig", [])))
+            self.dialog_context.lineEdit_pre_ex.setText(" ".join(rule.get("pre_ex", [])))
+            self.dialog_context.lineEdit_post_ex.setText(" ".join(rule.get("post_ex", [])))
+            self.dialog_context.checkBox_skip.setChecked(rule.get("skip_stress", False))
+            self.dialog_context.checkBox_solo.setChecked(rule.get("stress_solo", False))
             self.dialog_context.exec_()
 
         elif rule_type == "del":
             self.dialog_del = UI_Deletion()
             self.dialog_del.ruleSent.connect(self.update_rule)
 
-            self.dialog_del.lineEdit_name.setText(rule[0])
-            self.dialog_del.textEdit_notes.setText(rule[2])
-            self.dialog_del.lineEdit_delete_list.setText(" ".join(rule[3]))
-            self.dialog_del.lineEdit_pre_trig.setText(" ".join(rule[4]))
-            self.dialog_del.lineEdit_post_trig.setText(" ".join(rule[5]))
-            self.dialog_del.lineEdit_pre_ex.setText(" ".join(rule[6]))
-            self.dialog_del.lineEdit_post_ex.setText(" ".join(rule[7]))
-            self.dialog_del.checkBox_skip.setChecked(rule[8])
-            self.dialog_del.checkBox_solo.setChecked(rule[9])
-            self.dialog_del.checkBox_sonority.setChecked(rule[10])
+            self.dialog_del.lineEdit_name.setText(rule["name"])
+            self.dialog_del.textEdit_notes.setText(rule["notes"])
+            self.dialog_del.lineEdit_delete_list.setText(" ".join(rule["del_list"]))
+            self.dialog_del.lineEdit_pre_trig.setText(" ".join(rule.get("pre_list", [])))
+            self.dialog_del.lineEdit_post_trig.setText(" ".join(rule.get("post_list", [])))
+            self.dialog_del.lineEdit_pre_ex.setText(" ".join(rule.get("except_pre", [])))
+            self.dialog_del.lineEdit_post_ex.setText(" ".join(rule.get("except_post", [])))
+            self.dialog_del.checkBox_skip.setChecked(rule.get("skip_stress", False))
+            self.dialog_del.checkBox_solo.setChecked(rule.get("stress_solo", False))
+            self.dialog_del.checkBox_sonority.setChecked(rule.get("sonority_safe", True))
             self.dialog_del.exec_()
-
 
         elif rule_type == "disc":
             self.dialog_assimilate = UI_Assimilate()
             self.dialog_assimilate.ruleSent.connect(self.update_rule)
 
-            self.dialog_assimilate.lineEdit_name.setText(rule[0])
-            self.dialog_assimilate.textEdit_notes.setText(rule[2])
-            self.dialog_assimilate.lineEdit_target.setText(" ".join(rule[3]))
-            self.dialog_assimilate.lineEdit_trigger.setText(" ".join(rule[4]))
-            self.dialog_assimilate.lineEdit_replace.setText(" ".join(rule[5]))
-            self.dialog_assimilate.checkBox_prog.setChecked(not rule[6])
-            self.dialog_assimilate.checkBox_skip.setChecked(rule[7])
+            self.dialog_assimilate.lineEdit_name.setText(rule["name"])
+            self.dialog_assimilate.textEdit_notes.setText(rule["notes"])
+            self.dialog_assimilate.lineEdit_target.setText(" ".join(rule["targets"]))
+            self.dialog_assimilate.lineEdit_trigger.setText(" ".join(rule["triggers"]))
+            self.dialog_assimilate.lineEdit_replace.setText(" ".join(rule["replace"]))
+            self.dialog_assimilate.checkBox_prog.setChecked(not rule["regressive"])
+            self.dialog_assimilate.checkBox_skip.setChecked(rule.get("skip_stress", False))
             self.dialog_assimilate.checkBox_disc.setChecked(True)
-            self.dialog_assimilate.spinBox_max.setValue(rule[8])
+            self.dialog_assimilate.spinBox_max.setValue(rule["max_distance"])
             self.dialog_assimilate.spinBox_max.setEnabled(True)
-            self.dialog_assimilate.checkBox_solo_gem.setChecked(rule[9])
+            self.dialog_assimilate.checkBox_solo_gem.setChecked(rule.get("require_identical", False))
             self.dialog_assimilate.exec_()
 
         elif rule_type == "epen":
             self.dialog_epen = UI_Epenthetic()
             self.dialog_epen.ruleSent.connect(self.update_rule)
 
-            self.dialog_epen.lineEdit_name.setText(rule[0])
-            self.dialog_epen.textEdit_notes.setText(rule[2])
-            self.dialog_epen.lineEdit_old.setText(" ".join(rule[3]))
-            self.dialog_epen.lineEdit_new.setText(" ".join(rule[4]))
-            self.dialog_epen.combo_position.setCurrentText(rule[5].capitalize())
-            self.dialog_epen.lineEdit_pre.setText(" ".join(rule[6]))
-            self.dialog_epen.lineEdit_post.setText(" ".join(rule[7]))
+            self.dialog_epen.lineEdit_name.setText(rule["name"])
+            self.dialog_epen.textEdit_notes.setText(rule["notes"])
+            self.dialog_epen.lineEdit_old.setText(" ".join(rule["find_list"]))
+            self.dialog_epen.lineEdit_new.setText(" ".join(rule["replace_list"]))
+            self.dialog_epen.combo_position.setCurrentText(rule["syllable_pos"].capitalize())
+            self.dialog_epen.lineEdit_pre.setText(" ".join(rule.get("pre_list", [])))
+            self.dialog_epen.lineEdit_post.setText(" ".join(rule.get("post_list", [])))
             self.dialog_epen.exec_()
-        
+
         elif rule_type == "str":
             self.dialog_stress = UI_Stress()
             self.dialog_stress.ruleSent.connect(self.update_rule)
 
-            self.dialog_stress.lineEdit_name.setText(rule[0])
-            self.dialog_stress.textEdit_notes.setText(rule[2])
-            self.dialog_stress.combo_mode.setCurrentText(rule[3].capitalize())
+            self.dialog_stress.lineEdit_name.setText(rule["name"])
+            self.dialog_stress.textEdit_notes.setText(rule["notes"])
+            self.dialog_stress.combo_mode.setCurrentText(rule["mode"].capitalize())
 
-            if rule[3] == "weight":
-                self.dialog_stress.combo_fallback.setCurrentText(rule[4].capitalize())
-                self.dialog_stress.spin_window.setValue(rule[5])
-                self.dialog_stress.check_coda.setChecked(rule[6])
-                self.dialog_stress.check_skip.setChecked(rule[7])
+            if rule["mode"] == "weight":
+                self.dialog_stress.combo_fallback.setCurrentText(rule["weight_default"].capitalize())
+                self.dialog_stress.spin_window.setValue(rule["weight_window"])
+                self.dialog_stress.check_coda.setChecked(rule.get("coda_matters", True))
+                self.dialog_stress.check_skip.setChecked(rule.get("skip_ultimate", False))
 
             self.dialog_stress.exec_()
 
@@ -528,21 +511,20 @@ class UI_Main(QMainWindow):
             self.dialog_syll = UI_Syllabic()
             self.dialog_syll.ruleSent.connect(self.update_rule)
 
-            self.dialog_syll.lineEdit_name.setText(rule[0])
-            self.dialog_syll.textEdit_notes.setText(rule[2])
-            self.dialog_syll.lineEdit_old_list.setText(" ".join(rule[3]))
-            self.dialog_syll.lineEdit_new_list.setText(" ".join(rule[4]))
-            self.dialog_syll.lineEdit_pre_trigs.setText(" ".join(rule[6]))
-            self.dialog_syll.lineEdit_post_trigs.setText(" ".join(rule[7]))
-            self.dialog_syll.checkBox_skip.setChecked(bool(rule[8]))
-            self.dialog_syll.checkBox_solo.setChecked(bool(rule[9]))
+            self.dialog_syll.lineEdit_name.setText(rule["name"])
+            self.dialog_syll.textEdit_notes.setText(rule["notes"])
+            self.dialog_syll.lineEdit_old_list.setText(" ".join(rule["old_list"]))
+            self.dialog_syll.lineEdit_new_list.setText(" ".join(rule["new_list"]))
+            self.dialog_syll.lineEdit_pre_trigs.setText(" ".join(rule.get("pre_list", [])))
+            self.dialog_syll.lineEdit_post_trigs.setText(" ".join(rule.get("post_list", [])))
+            self.dialog_syll.checkBox_skip.setChecked(bool(rule.get("skip_stress", False)))
+            self.dialog_syll.checkBox_solo.setChecked(bool(rule.get("stress_solo", False)))
 
-            # Set Combobox
-            want = str(rule[5]).strip().lower()
+            want = str(rule["position"]).strip().lower()
             idx = self.dialog_syll.comboBox.findData(want)
             if idx != -1:
                 self.dialog_syll.comboBox.setCurrentIndex(idx)
-            
+
             self.dialog_syll.exec_()
 
         self.is_dirty = True
@@ -577,30 +559,28 @@ class UI_Main(QMainWindow):
         self.rules.add(rule)# Add rule to rules
         print("Updated rules:", self.rules)
 
-        label = f"{rule[0]} - {rule[2]}"  # User-friendly text
+        label = f"{rule['name']} - {rule['notes']}"
         item = QListWidgetItem(label)
-        item.setData(Qt.UserRole, rule[0])  # Store actual key
+        item.setData(Qt.UserRole, rule["name"])
         self.list_widget.addItem(item)
 
         self.is_dirty = True # Prevent save issues.
 
     def update_rule(self, updated_rule):
-        key = updated_rule[0]
-        self.rules.remove(key) # Remove old version
-        self.rules.add(updated_rule) # Add new version
+        key = updated_rule["name"]
+        self.rules.remove(key)
+        self.rules.add(updated_rule)
 
-        # Updated QListWidget item label
         for i in range(self.list_widget.count()):
             item = self.list_widget.item(i)
             if item.data(Qt.UserRole) == key:
-                label = f"{updated_rule[0]} - {updated_rule[2]}" if len(updated_rule) > 2 else updated_rule[0]
-                item.setText(label)
+                item.setText(f"{updated_rule['name']} - {updated_rule['notes']}")
                 break
         self.is_dirty = True
 
 
 class UI_Dialog(QDialog):
-    ruleSent = pyqtSignal(list) # Signal to dialog_phono that rule sent
+    ruleSent = pyqtSignal(dict)
 
     def __init__(self):
         super(UI_Dialog, self).__init__()
@@ -689,14 +669,16 @@ class UI_Assimilate(UI_Dialog):
 
 
         if self.checkBox_disc.isChecked():
-            max_distance = self.spinBox_max.value()
-            # Create discontiguous assimilation rule
-            rule = [name, "disc", notes, target_list, trigger_list, replace_list, 
-                    regressive, stress_skip, max_distance, require_identical]
+            rule = {"name": name, "type": "disc", "notes": notes,
+                    "targets": target_list, "triggers": trigger_list, "replace": replace_list,
+                    "regressive": regressive, "skip_stress": stress_skip,
+                    "max_distance": self.spinBox_max.value(),
+                    "require_identical": require_identical}
         else:
-            # Create normal assimilation rule
-            rule = [name, "ass", notes, target_list, trigger_list, replace_list, 
-                    regressive, stress_skip, require_identical]
+            rule = {"name": name, "type": "ass", "notes": notes,
+                    "targets": target_list, "triggers": trigger_list, "replace": replace_list,
+                    "regressive": regressive, "skip_stress": stress_skip,
+                    "require_identical": require_identical}
 
         self.send_rule(rule)
 
@@ -739,9 +721,9 @@ class UI_ClusterPolicy(UI_Dialog):
         allow     = self._parse_block(self.line_allow)
         ban       = self._parse_block(self.line_ban)
 
-        # Payload shape (keeps parity with your other rules):
-        # [name, "clp", notes, position, scope, allow, ban, max_check]
-        rule = [name, "clp", notes, position, scope, allow, ban, max_check]
+        rule = {"name": name, "type": "clp", "notes": notes,
+                "position": position, "scope": scope,
+                "allow": allow, "ban": ban, "max_check": max_check}
         self.send_rule(rule)
 
 
@@ -786,9 +768,12 @@ class UI_Context(UI_Dialog):
         pre_trig = self.lineEdit_pre_trig.text().split()
         post_trig = self.lineEdit_post_trig.text().split()
 
-        rule = [name, "con", notes, old_list, new_list, pre_trig, post_trig, 
-                pre_ex, post_ex, stress_skip, stress_solo]
-        
+        rule = {"name": name, "type": "con", "notes": notes,
+                "old_list": old_list, "new_list": new_list,
+                "pre_trig": pre_trig, "post_trig": post_trig,
+                "pre_ex": pre_ex, "post_ex": post_ex,
+                "skip_stress": stress_skip, "stress_solo": stress_solo}
+
         self.send_rule(rule)
 
 class UI_Deletion(UI_Dialog):
@@ -829,9 +814,11 @@ class UI_Deletion(UI_Dialog):
         solo      = self.checkBox_solo.isChecked()
         sono      = self.checkBox_sonority.isChecked()
 
-        # Rule shape expected by EvolutionEngine → DeletionRule:
-        # [name, "del", notes, del_list, pre_list, post_list, except_pre, except_post, skip_stress, stress_solo]
-        rule = [name, "del", notes, del_list, pre_list, post_list, ex_pre, ex_post, skip, solo, sono]
+        rule = {"name": name, "type": "del", "notes": notes,
+                "del_list": del_list,
+                "pre_list": pre_list, "post_list": post_list,
+                "except_pre": ex_pre, "except_post": ex_post,
+                "skip_stress": skip, "stress_solo": solo, "sonority_safe": sono}
         self.send_rule(rule)
 
 class UI_Epenthetic(UI_Dialog):
@@ -857,7 +844,10 @@ class UI_Epenthetic(UI_Dialog):
         pre_list = self.lineEdit_pre.text().split()
         post_list = self.lineEdit_post.text().split()
 
-        rule = [name, "epen", notes, find_list, new_list, position, pre_list, post_list]
+        rule = {"name": name, "type": "epen", "notes": notes,
+                "find_list": find_list, "replace_list": new_list,
+                "syllable_pos": position,
+                "pre_list": pre_list, "post_list": post_list}
         self.send_rule(rule)
 
 class UI_Stress(UI_Dialog):
@@ -909,14 +899,12 @@ class UI_Stress(UI_Dialog):
     def child_func(self, name, notes):
         mode = self.combo_mode.currentText().lower()
 
+        rule = {"name": name, "type": "str", "notes": notes, "mode": mode}
         if mode == "weight":
-            fallback = self.combo_fallback.currentText().lower()
-            window = self.spin_window.value()
-            coda = self.check_coda.isChecked()
-            skip = self.check_skip.isChecked()
-            rule = [name, "str", notes, mode, fallback, window, coda, skip]
-        else:
-            rule = [name, "str", notes, mode]
+            rule["weight_default"] = self.combo_fallback.currentText().lower()
+            rule["weight_window"]  = self.spin_window.value()
+            rule["coda_matters"]   = self.check_coda.isChecked()
+            rule["skip_ultimate"]  = self.check_skip.isChecked()
 
         self.send_rule(rule)
 
@@ -960,12 +948,15 @@ class UI_Syllabic(UI_Dialog):
         skip       = self.checkBox_skip.isChecked()
         solo       = self.checkBox_solo.isChecked()
 
-        rule = [name, "syll", notes, old_list, new_list, position, pre_list, post_list, skip, solo]
+        rule = {"name": name, "type": "syll", "notes": notes,
+                "old_list": old_list, "new_list": new_list, "position": position,
+                "pre_list": pre_list, "post_list": post_list,
+                "skip_stress": skip, "stress_solo": solo}
         self.send_rule(rule)
 
 class UI_Phono(QDialog):
     # Signal that rule was recieved and sends to main
-    ruleReceived = pyqtSignal(list)
+    ruleReceived = pyqtSignal(dict)
 
     def __init__(self):
         super(UI_Phono, self).__init__()

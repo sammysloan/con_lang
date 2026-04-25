@@ -179,18 +179,17 @@ class Word:
 # ===== RULE INTERFACE =====
 
 class Rule:
-    def __init__(self, raw_data: list):
-        self.name = raw_data[0]
-        self.type = raw_data[1]
-        self.notes = raw_data[2]
-        self.params = raw_data[3:] # Rule parameters
-    
+    def __init__(self, data: dict):
+        self.name = data["name"]
+        self.type = data["type"]
+        self.notes = data["notes"]
+
     def apply(self, word: Word):
         raise NotImplementedError("This rule must implement apply()")
 
 class PhonoRule(Rule):
-    def __init__(self, raw_data):
-        super().__init__(raw_data)
+    def __init__(self, data: dict):
+        super().__init__(data)
         self.cluster_policies = []
 
     def match_stress(self, syll_index, stress_index, stress_solo, skip_stress):
@@ -425,17 +424,14 @@ class PhonoRule(Rule):
 
 # ===== PHONORULES ====
 class AssimilationRule(PhonoRule):
-    def __init__(self, raw_data):
-        super().__init__(raw_data)
-        self.name = raw_data[0]
-        self.type = raw_data[1]
-        self.notes = raw_data[2]
-        self.targets = raw_data[3]  # list of strings
-        self.triggers = raw_data[4]  # list of strings
-        self.replace = raw_data[5]
-        self.regressive = raw_data[6]  # direction: True = reg, False = prog
-        self.skip_stress = raw_data[7]
-        self.require_identical = raw_data[8] if len(raw_data) > 8 else False
+    def __init__(self, data: dict):
+        super().__init__(data)
+        self.targets = data["targets"]
+        self.triggers = data["triggers"]
+        self.replace = data["replace"]
+        self.regressive = data["regressive"]
+        self.skip_stress = data.get("skip_stress", False)
+        self.require_identical = data.get("require_identical", False)
 
 
     def apply(self, word):
@@ -472,12 +468,12 @@ class AssimilationRule(PhonoRule):
         current_syll = []
         current_idx = phonemes[0][0] if phonemes else None
 
-        for phoneme in phonemes:
+        for idx, phoneme in enumerate(phonemes):
             syll_idx, symbol, stressed = phoneme
             if syll_idx == current_idx:
                 current_syll.append(symbol)
             else:
-                syllables.append(Syllable("".join(current_syll), stressed=phonemes[phonemes.index(phoneme)-1][2]))
+                syllables.append(Syllable("".join(current_syll), stressed=phonemes[idx-1][2]))
                 current_syll = [symbol]
                 current_idx = syll_idx
 
@@ -489,19 +485,16 @@ class AssimilationRule(PhonoRule):
 
 class DeletionRule(PhonoRule):
     nuclei = set(IPA_GROUPS.get("Nuclei", [])) | set(IPA_GROUPS.get("ShortVowels", []))
-    def __init__(self, raw_data):
-        super().__init__(raw_data)
-        self.name = raw_data[0]
-        self.type = raw_data[1]
-        self.notes = raw_data[2]
-        self.del_list = raw_data[3]
-        self.pre_list = raw_data[4] if len(raw_data) > 4 else []
-        self.post_list = raw_data[5] if len(raw_data) > 5 else []
-        self.except_pre = raw_data[6] if len(raw_data) > 6 else []
-        self.except_post = raw_data[7] if len(raw_data) > 7 else []
-        self.skip_stress = raw_data[8] if len(raw_data) > 8 else False
-        self.stress_solo = raw_data[9] if len(raw_data) > 9 else False
-        self.sonority_safe = raw_data[10] if len(raw_data) > 10 else True
+    def __init__(self, data: dict):
+        super().__init__(data)
+        self.del_list = data["del_list"]
+        self.pre_list = data.get("pre_list", [])
+        self.post_list = data.get("post_list", [])
+        self.except_pre = data.get("except_pre", [])
+        self.except_post = data.get("except_post", [])
+        self.skip_stress = data.get("skip_stress", False)
+        self.stress_solo = data.get("stress_solo", False)
+        self.sonority_safe = data.get("sonority_safe", True)
 
     def apply(self, word: Word):
         # Tokenize syllables
@@ -583,18 +576,15 @@ class DeletionRule(PhonoRule):
         word.syllables = self.refine_syllables(rebuilt_syllables)
 
 class DiscontiguousRule(PhonoRule):
-    def __init__(self, raw_data):
-        super().__init__(raw_data)
-        self.name = raw_data[0]
-        self.type = raw_data[1]
-        self.notes = raw_data[2]
-        self.targets = raw_data[3]
-        self.triggers = raw_data[4]
-        self.replace = raw_data[5]
-        self.regressive = raw_data[6]
-        self.skip_stress = raw_data[7]
-        self.max_distance = raw_data[8]
-        self.require_identical = raw_data[11] if len(raw_data) > 12 else False
+    def __init__(self, data: dict):
+        super().__init__(data)
+        self.targets = data["targets"]
+        self.triggers = data["triggers"]
+        self.replace = data["replace"]
+        self.regressive = data["regressive"]
+        self.skip_stress = data.get("skip_stress", False)
+        self.max_distance = data["max_distance"]
+        self.require_identical = data.get("require_identical", False)
 
 
 
@@ -629,13 +619,13 @@ class DiscontiguousRule(PhonoRule):
         current_syll = []
         current_idx = phonemes[0][0] if phonemes else None
 
-        for phoneme in phonemes:
+        for idx, phoneme in enumerate(phonemes):
             syll_idx, symbol, stressed = phoneme
             if syll_idx == current_idx:
                 current_syll.append(symbol)
             else:
                 syllables.append(Syllable("".join(current_syll),
-                                          stressed=phonemes[phonemes.index(phoneme) - 1][2]))
+                                          stressed=phonemes[idx - 1][2]))
                 current_syll = [symbol]
                 current_idx = syll_idx
 
@@ -668,15 +658,13 @@ class DiscontiguousRule(PhonoRule):
         return indices
 
 class EpentheticRule(PhonoRule):
-    def __init__(self, rule_data):
-        self.name = rule_data[0]
-        self.rule_type = rule_data[1]
-        self.notes = rule_data[2]
-        self.find_list = expand_group_keywords(rule_data[3])
-        self.replace_list = rule_data[4]
-        self.syllable_pos = rule_data[5]
-        self.pre_list = expand_group_keywords(rule_data[6])
-        self.post_list = expand_group_keywords(rule_data[7])
+    def __init__(self, data: dict):
+        super().__init__(data)
+        self.find_list = data["find_list"]
+        self.replace_list = data["replace_list"]
+        self.syllable_pos = data["syllable_pos"]
+        self.pre_list = data.get("pre_list", [])
+        self.post_list = data.get("post_list", [])
 
     def refine_epenthetic_syllable(self, raw_text: str) -> list:
         if "." in raw_text:
@@ -732,18 +720,13 @@ class ClusterPolicyRule(PhonoRule):
     Instead, its parameters are consumed by the syllabifier.
     """
 
-    def __init__(self, data):
+    def __init__(self, data: dict):
         super().__init__(data)
-        # Expected data format from preset_edit:
-        # [name, "clp", notes, position, scope, allow, ban, max_check]
-        self.name = data[0]
-        self.rule_type = data[1]
-        self.notes = data[2]
-        self.position = data[3]
-        self.scope = data[4]
-        self.allow = [tuple(c) for c in (data[5] or [])]
-        self.ban   = [tuple(c) for c in (data[6] or [])]
-        self.max_check = int(data[7]) if len(data) > 7 else 3
+        self.position = data["position"]
+        self.scope = data["scope"]
+        self.allow = [tuple(c) for c in (data.get("allow") or [])]
+        self.ban   = [tuple(c) for c in (data.get("ban") or [])]
+        self.max_check = int(data.get("max_check", 3))
 
         # Precompute lookup sets for speed
         self.allow_set = set(self.allow)
@@ -768,15 +751,26 @@ class ClusterPolicyRule(PhonoRule):
         }
 
 class ContextualRule(PhonoRule):
+    def __init__(self, data: dict):
+        super().__init__(data)
+        self.old_list   = data["old_list"]
+        self.new_list   = data["new_list"]
+        self.pre_trig   = data.get("pre_trig", [])
+        self.post_trig  = data.get("post_trig", [])
+        self.pre_ex     = data.get("pre_ex", [])
+        self.post_ex    = data.get("post_ex", [])
+        self.skip_stress = data.get("skip_stress", False)
+        self.stress_solo = data.get("stress_solo", False)
+
     def apply(self, word: Word):
-        old_list      = self.params[0]
-        new_list      = self.params[1]
-        pre_list      = self.params[2] or []
-        post_list     = self.params[3] or []
-        except_pre    = self.params[4] or []
-        except_post   = self.params[5] or []
-        skip_stress   = self.params[6] if len(self.params) > 6 else False
-        stress_solo   = self.params[7] if len(self.params) > 7 else False
+        old_list      = self.old_list
+        new_list      = self.new_list
+        pre_list      = self.pre_trig or []
+        post_list     = self.post_trig or []
+        except_pre    = self.pre_ex or []
+        except_post   = self.post_ex or []
+        skip_stress   = self.skip_stress
+        stress_solo   = self.stress_solo
 
         # Tokenize lists
         old_list    = [tokenize_ipa(seq) for seq in old_list]
@@ -832,15 +826,24 @@ class ContextualRule(PhonoRule):
         word.syllables = self.refine_syllables(rebuilt)
 
 class SyllabicRule(PhonoRule):
-    def apply(self, word: Word):
-        old_list = self.params[0]
-        new_list = self.params[1]
-        position = self.params[2]
-        pre_list = self.params[3] if len(self.params) > 3 else []
-        post_list = self.params[4] if len(self.params) > 4 else []
-        skip_stress = self.params[5] if len(self.params) > 5 else False
-        stress_solo = self.params[6] if len(self.params) > 6 else False
+    def __init__(self, data: dict):
+        super().__init__(data)
+        self.old_list   = data["old_list"]
+        self.new_list   = data["new_list"]
+        self.position   = data["position"]
+        self.pre_list   = data.get("pre_list", [])
+        self.post_list  = data.get("post_list", [])
+        self.skip_stress = data.get("skip_stress", False)
+        self.stress_solo = data.get("stress_solo", False)
 
+    def apply(self, word: Word):
+        old_list    = self.old_list
+        new_list    = self.new_list
+        position    = self.position
+        pre_list    = self.pre_list
+        post_list   = self.post_list
+        skip_stress = self.skip_stress
+        stress_solo = self.stress_solo
 
         # Resolve position
         if position == "first":
@@ -859,19 +862,24 @@ class SyllabicRule(PhonoRule):
             return
 
         # Build a pseudo-ContextualRule scoped to this syllable
-        raw_data = [self.name, "con", self.notes, old_list, new_list, pre_list, post_list, [], [], skip_stress, stress_solo]
-        adapter = SyllabicContextAdapter(raw_data, index)
+        adapter_data = {
+            "name": self.name, "type": "con", "notes": self.notes,
+            "old_list": old_list, "new_list": new_list,
+            "pre_trig": pre_list, "post_trig": post_list,
+            "pre_ex": [], "post_ex": [],
+            "skip_stress": skip_stress, "stress_solo": stress_solo,
+        }
+        adapter = SyllabicContextAdapter(adapter_data, index)
         adapter.apply(word)
 
         word.syllables = self.refine_syllables(word.syllables)
 
 class SyllabicContextAdapter(ContextualRule):
-    def __init__(self, raw_data, syll_index):
-        # Force the rule to act *only* on one syllable
-        adapted_data = raw_data[:]
-        adapted_data[2] += f" (Scoped to syllable {syll_index})"
+    def __init__(self, data: dict, syll_index: int):
+        adapted = dict(data)
+        adapted["notes"] = data["notes"] + f" (Scoped to syllable {syll_index})"
         self.syll_index = syll_index
-        super().__init__(adapted_data)
+        super().__init__(adapted)
 
     def apply(self, word: Word):
         # Slice the syllable, apply rule, reinsert result
@@ -900,24 +908,20 @@ class SyllabicContextAdapter(ContextualRule):
         )
 
 class StressRule(PhonoRule):
-    def __init__(self, raw_data):
-        super().__init__(raw_data)
-        self.name = raw_data[0]
-        self.type = raw_data[1]
-        self.notes = raw_data[2]
-        self.mode = raw_data[3]  # "first", "ultimate", "penult", "antipenult", "weight"
+    def __init__(self, data: dict):
+        super().__init__(data)
+        self.mode = data["mode"]
 
         if self.mode == "weight":
-            self.weight_default = raw_data[4]   # fallback: "penult", "first", etc.
-            self.weight_window = raw_data[5]    # e.g., 3 for Arabic
-            self.coda_matters = raw_data[6] if len(raw_data) > 6 else True
-            self.skip_ultimate = raw_data[7] if len(raw_data) > 7 else False
-
+            self.weight_default = data["weight_default"]
+            self.weight_window  = data["weight_window"]
+            self.coda_matters   = data.get("coda_matters", True)
+            self.skip_ultimate  = data.get("skip_ultimate", False)
         else:
             self.weight_default = None
-            self.weight_window = None
-            self.coda_matters = True
-            self.skip_ultimate = False
+            self.weight_window  = None
+            self.coda_matters   = True
+            self.skip_ultimate  = False
 
     def apply(self, word: Word):
         sylls = word.syllables
@@ -986,8 +990,6 @@ class EvolutionEngine:
 
 
     def apply_rule(self, rule: Rule):
-        print(f"\n[DEBUG] Applying rule: {rule.name} ({rule.type})")
-
         # make cluster policies visible to any PhonoRule subclass
         if isinstance(rule, PhonoRule):
             rule.cluster_policies = self.cluster_policies
@@ -999,8 +1001,6 @@ class EvolutionEngine:
 
             if self.log_steps and before != after:
                 word.log_step(rule.name, before, after)
-            
-            print(f"[DEBUG]   Result for '{before}' -> '{after}'")
 
 
     def evolve(self, rule_data_list: list):
@@ -1011,34 +1011,110 @@ class EvolutionEngine:
 
 
 
-    def build_rule(self, rule_data: list) -> Rule:
-        # Use unmodified rule_data as the cache key
-        rule_key = tuple(repr(x) for x in rule_data)
+    # Fields whose values are phoneme lists and should have group keywords expanded
+    _EXPANDABLE = {
+        "ass":  ["targets", "triggers", "replace"],
+        "disc": ["targets", "triggers", "replace"],
+        "clp":  [],
+        "con":  ["old_list", "new_list", "pre_trig", "post_trig", "pre_ex", "post_ex"],
+        "del":  ["del_list", "pre_list", "post_list", "except_pre", "except_post"],
+        "epen": ["find_list", "replace_list", "pre_list", "post_list"],
+        "str":  [],
+        "syll": ["old_list", "new_list", "pre_list", "post_list"],
+    }
 
+    @staticmethod
+    def _list_to_dict(raw: list) -> dict:
+        """Convert legacy positional-list rule format to a named dict."""
+        name, rule_type, notes = raw[0], raw[1], raw[2]
+        p = raw[3:]  # params
+        base = {"name": name, "type": rule_type, "notes": notes}
+
+        if rule_type == "ass":
+            base.update({"targets": p[0], "triggers": p[1], "replace": p[2],
+                         "regressive": p[3],
+                         "skip_stress": p[4] if len(p) > 4 else False,
+                         "require_identical": p[5] if len(p) > 5 else False})
+        elif rule_type == "disc":
+            base.update({"targets": p[0], "triggers": p[1], "replace": p[2],
+                         "regressive": p[3],
+                         "skip_stress": p[4] if len(p) > 4 else False,
+                         "max_distance": p[5] if len(p) > 5 else 3,
+                         "require_identical": p[6] if len(p) > 6 else False})
+        elif rule_type == "clp":
+            base.update({"position": p[0], "scope": p[1],
+                         "allow": p[2] if len(p) > 2 else [],
+                         "ban":   p[3] if len(p) > 3 else [],
+                         "max_check": p[4] if len(p) > 4 else 3})
+        elif rule_type == "con":
+            base.update({"old_list": p[0], "new_list": p[1],
+                         "pre_trig":  p[2] if len(p) > 2 else [],
+                         "post_trig": p[3] if len(p) > 3 else [],
+                         "pre_ex":    p[4] if len(p) > 4 else [],
+                         "post_ex":   p[5] if len(p) > 5 else [],
+                         "skip_stress": p[6] if len(p) > 6 else False,
+                         "stress_solo": p[7] if len(p) > 7 else False})
+        elif rule_type == "del":
+            base.update({"del_list": p[0],
+                         "pre_list":   p[1] if len(p) > 1 else [],
+                         "post_list":  p[2] if len(p) > 2 else [],
+                         "except_pre": p[3] if len(p) > 3 else [],
+                         "except_post":p[4] if len(p) > 4 else [],
+                         "skip_stress":  p[5] if len(p) > 5 else False,
+                         "stress_solo":  p[6] if len(p) > 6 else False,
+                         "sonority_safe":p[7] if len(p) > 7 else True})
+        elif rule_type == "epen":
+            base.update({"find_list": p[0], "replace_list": p[1],
+                         "syllable_pos": p[2],
+                         "pre_list":  p[3] if len(p) > 3 else [],
+                         "post_list": p[4] if len(p) > 4 else []})
+        elif rule_type == "str":
+            base["mode"] = p[0]
+            if p[0] == "weight":
+                base.update({"weight_default": p[1] if len(p) > 1 else "penult",
+                             "weight_window":  p[2] if len(p) > 2 else 3,
+                             "coda_matters":   p[3] if len(p) > 3 else True,
+                             "skip_ultimate":  p[4] if len(p) > 4 else False})
+        elif rule_type == "syll":
+            base.update({"old_list": p[0], "new_list": p[1], "position": p[2],
+                         "pre_list":   p[3] if len(p) > 3 else [],
+                         "post_list":  p[4] if len(p) > 4 else [],
+                         "skip_stress": p[5] if len(p) > 5 else False,
+                         "stress_solo": p[6] if len(p) > 6 else False})
+
+        return base
+
+    def build_rule(self, rule_data) -> Rule:
+        # Normalise to dict (supports both legacy list format and new dict format)
+        data = rule_data if isinstance(rule_data, dict) else self._list_to_dict(rule_data)
+
+        rule_key = tuple(sorted((k, repr(v)) for k, v in data.items()))
         if rule_key in self.rule_cache:
             return self.rule_cache[rule_key]
 
-        # Expand after checking cache
-        expanded_data = rule_data[:3] + [expand_group_keywords(param) for param in rule_data[3:]]
-        rule_type = rule_data[1]
+        # Expand group keywords in phoneme-list fields
+        rule_type = data["type"]
+        expandable = self._EXPANDABLE.get(rule_type, [])
+        expanded = {k: (expand_group_keywords(v) if k in expandable else v)
+                    for k, v in data.items()}
 
         if rule_type == "ass":
-            rule = AssimilationRule(expanded_data)
+            rule = AssimilationRule(expanded)
         elif rule_type == "clp":
-            rule = ClusterPolicyRule(expanded_data)
+            rule = ClusterPolicyRule(expanded)
             self.cluster_policies.append(rule)
         elif rule_type == "con":
-            rule = ContextualRule(expanded_data)
+            rule = ContextualRule(expanded)
         elif rule_type == "del":
-            rule = DeletionRule(expanded_data)
+            rule = DeletionRule(expanded)
         elif rule_type == "disc":
-            rule = DiscontiguousRule(expanded_data)
+            rule = DiscontiguousRule(expanded)
         elif rule_type == "epen":
-            rule = EpentheticRule(expanded_data)
+            rule = EpentheticRule(expanded)
         elif rule_type == "str":
-            rule = StressRule(expanded_data)
+            rule = StressRule(expanded)
         elif rule_type == "syll":
-            rule = SyllabicRule(expanded_data)
+            rule = SyllabicRule(expanded)
         else:
             raise ValueError(f"Unknown rule type: {rule_type}")
 

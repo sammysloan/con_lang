@@ -445,6 +445,5 @@ class PhonoLatin(Phonologizer):
             syllables[0] += syllables[1]
             syllables.pop()
 
-        print(f"[Latin:syllables] -> {syllables}")
         return syllables
 

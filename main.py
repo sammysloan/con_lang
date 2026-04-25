@@ -26,7 +26,7 @@ class MainApp(QMainWindow):
 
     def __init__(self):
         super().__init__()
-        uic.loadUi("main.ui", self)  # Loads the .ui file
+        uic.loadUi(os.path.join(BASE_DIR, "main.ui"), self)
 
         # === WIDGET CONNECTIONS ===
         self.input_box = self.findChild(QTextEdit, "textEdit_input")
@@ -115,9 +115,9 @@ class MainApp(QMainWindow):
         try:
             with sqlite3.connect(DB_PATH) as conn:
                 cursor = conn.cursor()
-                cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name != 'sqlite_sequence'")
-                tables = [row[0] for row in cursor.fetchall()]
-                self.preset_combo.addItems(tables)
+                cursor.execute("SELECT DISTINCT preset_name FROM presets ORDER BY preset_name COLLATE NOCASE")
+                names = [row[0] for row in cursor.fetchall()]
+                self.preset_combo.addItems(names)
         except sqlite3.Error as e:
             print(f"[DB Error] {e}")
 
@@ -137,12 +137,15 @@ class MainApp(QMainWindow):
         try:
             with sqlite3.connect(DB_PATH) as conn:
                 cursor = conn.cursor()
-                cursor.execute(f"SELECT rule FROM {preset_name}")
+                cursor.execute(
+                    "SELECT rule FROM presets WHERE preset_name = ? ORDER BY rule_order",
+                    (preset_name,)
+                )
                 rows = cursor.fetchall()
                 for row in rows:
                     try:
                         rule = json.loads(row[0])
-                        if isinstance(rule, list):
+                        if isinstance(rule, (list, dict)):
                             rules.append(rule)
                     except json.JSONDecodeError as e:
                         print(f"[Error] Could not decode rule: {e}")
