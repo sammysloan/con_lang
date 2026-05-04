@@ -360,18 +360,24 @@ class PhonoRule(Rule):
                 if policy_dec is False:
                     pass
                 elif policy_dec is True:
+                    if curr.stressed:
+                        nxt.stressed = True
                     nxt.text = curr.text + nxt.text
                     syllables.pop(i)
                     continue
 
                 # If next starts with a nucleus, absorb curr into it.
                 if starts_with_nucleus(nxt):
+                    if curr.stressed:
+                        nxt.stressed = True
                     nxt.text = curr.text + nxt.text
                     syllables.pop(i)
                     continue
 
                 # Otherwise: only merge if the next onset is NOT licensable by SSP (incl. s-cluster exception).
                 if not _licensable_onset(nxt_toks):
+                    if curr.stressed:
+                        nxt.stressed = True
                     nxt.text = curr.text + nxt.text
                     syllables.pop(i)
                     continue
@@ -381,6 +387,8 @@ class PhonoRule(Rule):
             if not has_nucleus(curr):
                 # Prefer attaching forward (as onset) if a next syllable exists
                 if i + 1 < len(syllables):
+                    if curr.stressed:
+                        syllables[i + 1].stressed = True
                     syllables[i + 1].text = curr.text + syllables[i + 1].text
                     syllables.pop(i)
                     continue

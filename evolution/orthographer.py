@@ -20,8 +20,8 @@ class Orthographer:
 
     @staticmethod
     def _prep(s: str) -> str:
-        # Strip stress, syllable dots, and length markers.
-        return s.replace("ˈ", "").replace("ˌ", "").replace(".", "").replace("ː", "")
+        # Strip stress marks and syllable dots; preserve ː so long-vowel mappings can fire.
+        return s.replace("ˈ", "").replace("ˌ", "").replace(".", "")
 
     def _fuse_nasal(self, toks):
         out, i = [], 0

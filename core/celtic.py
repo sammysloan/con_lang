@@ -211,9 +211,9 @@ class PhonoCeltic(Phonologizer):
         vowels = self.vowels  # includes diphthongs and long nuclei
         # onsets allowed (tune as needed)
         onsets = {
-            'pr','br','tr','dr','kr','ɡr','fr',
-            'pl','bl','kl','ɡl','fl',
-            'kʷ','ɡʷ', 
+            'pr','br','tr','dr','kr','ɡr','fr','mr',
+            'pl','bl','kl','ɡl','fl','ml',
+            'kʷ','ɡʷ','kw','sw',
             'sp', 'st', 'sk', 'sm', 'sn', 'sl'
         }
 
@@ -277,8 +277,9 @@ class PhonoCeltic(Phonologizer):
 
             syllables.append("".join(onset + nucleus + coda))
 
-        # Merge any 1-char orphan syllables at end (rare)
-        if len(syllables) >= 2 and len(syllables[-1]) == 1:
+        # Merge stray final consonants only; vowel-final syllables (e.g. *penno → penn.o)
+        # must stay separate so the evolver's apocope rule can delete them.
+        if len(syllables) >= 2 and len(syllables[-1]) == 1 and syllables[-1] not in self.vowels:
             syllables[-2] += syllables[-1]
             syllables.pop()
 
